@@ -19,6 +19,7 @@ let profile = null;      // 신규 등록 시 함께 보낼 이름·학번
 let phase = "login";
 let burst = false;
 let blocked = false;
+let dup = false;         // 1시간 안에 이미 남긴 경우 — 축하 연출을 하지 않는다
 let jelly = 0;
 
 const payload = jwt => JSON.parse(new TextDecoder().decode(
@@ -37,6 +38,7 @@ function paint() {
   if (phase === "new" && sidOk()) cls.push("ok");
   if (burst) cls.push("burst-on");
   if (blocked) cls.push("blocked");
+  if (dup) cls.push("dup");
   document.body.className = cls.join(" ");
 }
 
@@ -119,7 +121,8 @@ async function record() {
       $("settledTime").textContent = time;
       $("settledLabel").textContent = data.recent ? "이미 기록되어 있습니다" : "완료되었습니다";
 
-      if (data.recent) { go("settled"); return; }
+      if (data.recent) { dup = true; go("settled"); return; }
+      dup = false;
 
       if (navigator.vibrate) navigator.vibrate(60);
       burst = true;
