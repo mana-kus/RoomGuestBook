@@ -12,7 +12,9 @@ const POS_HELP = {
 const IN_APP = /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|NAVER|DaumApps|everytime/i
   .test(navigator.userAgent);
 
-const WAIT = 8000;   // 측위를 기다리는 시간. 권한 팝업을 읽는 시간도 여기 포함된다.
+// 측위를 기다리는 시간. 권한 팝업을 읽는 시간도 여기 포함된다.
+// 실내에서는 10초를 넘기는 일이 드물지 않아 넉넉히 잡는다 — 짧게 잡으면 멀쩡한 사람이 실패한다.
+const WAIT = 15000;
 
 const $ = id => document.getElementById(id);
 
@@ -76,12 +78,12 @@ async function post(extra) {
 // timeout 은 권한 팝업을 띄워둔 시간까지 함께 센다. 처음 오는 사람은 팝업을 읽고
 // 누르는 동안 시간이 흐르므로 넉넉히 준다. maximumAge 는 최근에 잡아둔 위치를
 // 그대로 쓰게 해서 두 번째부터는 기다림이 없다.
-const getPos = timeout => new Promise(done => {
+const getPos = (timeout, gps) => new Promise(done => {
   if (!navigator.geolocation) return done({ error: "unavailable" });
   navigator.geolocation.getCurrentPosition(
     p => done({ lat: p.coords.latitude, lon: p.coords.longitude, acc: Math.round(p.coords.accuracy) }),
     e => done({ error: e.code === 1 ? "denied" : "unavailable" }),
-    { enableHighAccuracy: false, timeout: timeout, maximumAge: 300000 }
+    { enableHighAccuracy: !!gps, timeout: timeout, maximumAge: 300000 }
   );
 });
 
@@ -103,15 +105,15 @@ function warmUp() {
 
 // 첫 측위는 콜드 스타트라 한 번에 실패하는 일이 잦다. 시간이 모자라 실패한 경우에만
 // 한 번 더 시도한다. 사용자가 거부한 경우(denied)는 다시 물어도 소용없으므로 그대로 둔다.
+// 미리 시작해 둔 것이 있으면 그 결과를 쓴다. 실패하면 여기서 또 기다리지 않는다 —
+// 대기가 겹쳐 쌓이면 멀쩡한 사람도 오래 기다리다 실패한다. 다시 누르면 새로 시도한다.
 async function pos() {
-  if (warm) {
-    const ready = await warm;
-    warm = null;
-    if (!ready.error) return ready;
-  }
-  const first = await getPos(WAIT);
-  if (first.error !== "unavailable") return first;
-  return getPos(WAIT);
+  const g = warm ? await warm : await getPos(WAIT);
+  warm = null;
+  // Wi-Fi·기지국 측위를 아예 쓸 수 없는 기기가 있다(설정에서 꺼둔 경우).
+  // 그때는 즉시 실패로 돌아오므로, 마지막으로 GPS 로 한 번 더 물어본다.
+  if (g.error === "unavailable") return getPos(WAIT, true);
+  return g;
 }
 
 // 로그인만 하면 바로 기록한다. 누를 것이 없다.

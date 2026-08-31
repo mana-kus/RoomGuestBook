@@ -42,6 +42,17 @@ body {
   font-family: Pretendard, system-ui, sans-serif;
   color: var(--text);
   overscroll-behavior: none;
+  /* 누를 때 글자가 선택되거나 파란 박스가 씌워지지 않도록 */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* 입력창에서는 선택과 붙여넣기가 되어야 한다 */
+input {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 #stage {
