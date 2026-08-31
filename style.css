@@ -1,0 +1,119 @@
+/* 디자인 전담. 동작에 관여하는 코드는 여기에 두지 않습니다. */
+
+:root {
+  --ink:     #0a0b14;
+  --text:    #e8e6f0;
+  --muted:   #8b88a3;
+  --faint:   #6b6885;
+  --line:    #24263a;
+  --blue:    #2f2fd8;
+  --violet:  #9b30ff;
+  --danger:  #ff6b6b;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1.25rem;
+  background: var(--ink);
+  color: var(--text);
+  font-family: "Gowun Batang", "Nanum Myeongjo", serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 물약에서 번지는 빛 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(55rem 34rem at 50% -12%, rgba(80, 60, 220, .30), transparent 62%),
+    radial-gradient(26rem 26rem at 84% 14%, rgba(155, 48, 255, .13), transparent 70%);
+}
+
+main {
+  position: relative;
+  width: 100%;
+  max-width: 19rem;
+  text-align: center;
+  animation: rise .7s ease-out both;
+}
+
+.logo {
+  width: 5.5rem;
+  height: auto;
+  filter: drop-shadow(0 0 1.6rem rgba(120, 80, 255, .45));
+  animation: float 6s ease-in-out infinite;
+}
+
+h1 {
+  margin: 1.1rem 0 .35rem;
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: .14em;
+}
+
+.sub {
+  margin: 0 0 2.25rem;
+  font-size: .85rem;
+  color: var(--muted);
+}
+
+#gbtn { display: flex; justify-content: center; min-height: 2.5rem; }
+
+.sign {
+  width: 100%;
+  padding: .9rem 1rem;
+  border: 0;
+  border-radius: .55rem;
+  font: inherit;
+  font-size: 1rem;
+  color: #fff;
+  background: linear-gradient(135deg, var(--blue), var(--violet));
+  cursor: pointer;
+  transition: filter .2s, transform .1s;
+}
+.sign:hover:not(:disabled) { filter: brightness(1.12); }
+.sign:active:not(:disabled) { transform: translateY(1px); }
+.sign:disabled { background: #23253a; color: var(--muted); cursor: default; }
+
+input {
+  width: 100%;
+  margin-bottom: .5rem;
+  padding: .8rem .9rem;
+  font: inherit;
+  color: var(--text);
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid var(--line);
+  border-radius: .55rem;
+}
+input::placeholder { color: #5c5a75; }
+input:focus { outline: 0; border-color: var(--violet); }
+input:invalid:not(:placeholder-shown) { border-color: var(--danger); }
+
+#status {
+  min-height: 1.5rem;
+  margin: 1.15rem 0 0;
+  font-size: .85rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+#roster {
+  margin: .9rem 0 0;
+  font-size: .8rem;
+  line-height: 1.6;
+  color: var(--faint);
+}
+
+@keyframes rise  { from { opacity: 0; transform: translateY(.75rem); } }
+@keyframes float { 50% { transform: translateY(-.4rem); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before { animation: none !important; }
+}
