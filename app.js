@@ -75,6 +75,7 @@ async function submit() {
     } else if (data.ok === true) {
       btn.textContent = "✓ 기록 완료";
       $("status").textContent = "방문해주셔서 감사합니다!";
+      if (navigator.vibrate) navigator.vibrate(60);
     } else {
       btn.disabled = false;
       $("status").textContent = geo.error
