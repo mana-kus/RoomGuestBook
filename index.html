@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>동아리 방명록</title>
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center;
+    font-family: system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
+    background: #f6f7f9; color: #1a1a1a;
+  }
+  @media (prefers-color-scheme: dark) { body { background: #16181c; color: #eceef1; } }
+  main { text-align: center; padding: 2rem 1.5rem; max-width: 22rem; }
+  h1 { font-size: 1.4rem; margin: 0 0 .4rem; }
+  p.sub { margin: 0 0 2rem; opacity: .6; font-size: .9rem; }
+  #status { min-height: 1.4rem; margin-top: 1rem; font-size: .9rem; opacity: .75; }
+  #roster { margin-top: 1.2rem; font-size: .85rem; opacity: .55; line-height: 1.5; }
+  button.sign {
+    font: inherit; font-weight: 600; padding: .85rem 1.4rem; width: 100%;
+    border: 0; border-radius: .6rem; background: #1a73e8; color: #fff; cursor: pointer;
+  }
+  button.sign:disabled { background: #9aa0a6; cursor: default; }
+  #gbtn { display: flex; justify-content: center; }
+  input {
+    font: inherit; width: 100%; box-sizing: border-box; margin-bottom: .5rem;
+    padding: .7rem .8rem; border: 1px solid #c4c7cc; border-radius: .5rem;
+    background: transparent; color: inherit;
+  }
+  input:invalid:not(:placeholder-shown) { border-color: #d93025; }
+</style>
+</head>
+<body>
+<main>
+  <h1>동아리 방명록</h1>
+  <p class="sub">구글 계정으로 방문을 남겨주세요</p>
+  <div id="gbtn"></div>
+  <div id="action"></div>
+  <div id="status">구글 계정 확인 중…</div>
+  <div id="roster"></div>
+</main>
+
+<script>
+// ── 설정: 아래 두 값을 채우세요 (README.md 참고) ──────────────────
+const CLIENT_ID = "여기에_OAuth_클라이언트_ID.apps.googleusercontent.com";
+const ENDPOINT  = "여기에_Apps_Script_웹앱_URL";
+// ─────────────────────────────────────────────────────────────
+
+const $ = id => document.getElementById(id);
+let credential = null;
+let profile = null;   // 신규 등록 시 함께 보낼 이름/학번
+
+// JWT payload 디코드 (한글 이름 때문에 atob만으로는 부족)
+const payload = jwt => JSON.parse(new TextDecoder().decode(
+  Uint8Array.from(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0))
+));
+
+function onCredential(res) {
+  credential = res.credential;
+  const p = payload(credential);
+  $("gbtn").innerHTML = "";
+  $("status").textContent = "";
+  showButton((p.name || p.email) + "님으로 방명록 남기기");
+}
+
+// 버튼은 항상 여기서 만든다 — 실패 후 재시도해도 핸들러가 살아있도록
+function showButton(label) {
+  $("action").innerHTML = '<button class="sign" id="submit"></button>';
+  $("submit").textContent = label;   // textContent: 이름에 따옴표가 있어도 안전
+  $("submit").onclick = () => submit();
+}
+
+// 위치는 있으면 좋고 없어도 그만 — 거부하거나 실패해도 방명록은 진행합니다
+const getPos = () => new Promise(done => {
+  if (!navigator.geolocation) return done(null);
+  navigator.geolocation.getCurrentPosition(
+    p => done({ lat: p.coords.latitude, lon: p.coords.longitude, acc: Math.round(p.coords.accuracy) }),
+    () => done(null),
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+  );
+});
+
+async function submit() {
+  const btn = $("submit");
+  btn.disabled = true;
+  $("status").textContent = "위치 확인 중…";
+  const pos = await getPos();
+  $("status").textContent = pos ? "기록 중…" : "기록 중… (위치 없이)";
+  try {
+    // text/plain으로 보내야 preflight 없이 Apps Script가 받습니다
+    const r = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({ credential: credential, pos: pos }, profile))
+    });
+    const data = await r.json();
+
+    if (data.needProfile) return askProfile();   // 처음 오신 분
+    if (data.recent) {                           // 1시간 내 기록 있음
+      btn.textContent = "✓ 이미 기록됨";
+      $("status").textContent = "1시간 이내에 이미 남기셨어요.";
+    } else if (data.ok === true) {
+      btn.textContent = "✓ 기록 완료";
+      $("status").textContent = "방문해주셔서 감사합니다!";
+    } else {
+      // 서버는 거부 이유를 알려주지 않습니다. 위치 권한만 브라우저가 직접 압니다.
+      btn.disabled = false;
+      $("status").textContent = pos
+        ? "지금은 기록할 수 없습니다."
+        : "위치 권한을 허용한 뒤 다시 눌러주세요.";
+    }
+    showRoster(data);
+  } catch (e) {
+    btn.disabled = false;
+    $("status").textContent = "연결에 실패했습니다. 다시 눌러주세요.";
+  }
+}
+
+// 최근 1시간 입장자 — 등록된 회원에게만 서버가 내려줍니다
+function showRoster(data) {
+  if (!data.visitors || !data.visitors.length) return;
+  const more = data.more ? ` 외 ${data.more}명` : "";
+  $("roster").textContent = "최근 1시간 입장: " + data.visitors.join(", ") + more;
+}
+
+function askProfile() {
+  $("action").innerHTML = `
+    <form id="profile-form">
+      <input id="name" placeholder="이름" required>
+      <input id="sid" placeholder="학번 (숫자 12자리)" inputmode="numeric"
+             pattern="\\d{12}" maxlength="12" required>
+      <button class="sign" type="submit">등록하고 방명록 남기기</button>
+    </form>`;
+  // 기본값은 서버가 아니라 내 로그인 토큰에서 — 서버는 이름을 돌려주지 않습니다
+  $("name").value = payload(credential).name || "";
+  $("status").textContent = "처음 오셨네요. 이름과 학번을 입력해주세요.";
+  $("profile-form").onsubmit = ev => {
+    ev.preventDefault();
+    profile = { name: $("name").value.trim(), studentId: $("sid").value.trim() };
+    showButton("등록 중…");   // 폼의 값을 읽은 뒤에 갈아끼운다
+    submit();
+  };
+}
+
+window.onload = () => {
+  google.accounts.id.initialize({
+    client_id: CLIENT_ID,
+    callback: onCredential,
+    auto_select: true          // 이미 로그인된 계정이면 클릭 없이 바로 확인
+  });
+  google.accounts.id.renderButton($("gbtn"), { theme: "outline", size: "large", text: "signin_with", locale: "ko" });
+  google.accounts.id.prompt(n => {
+    if (!n.isDisplayed() && !n.isSkippedMoment()) return;
+    $("status").textContent = "위 버튼으로 로그인해주세요";
+  });
+};
+</script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</body>
+</html>
