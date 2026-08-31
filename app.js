@@ -1,4 +1,4 @@
-/* 동작 전담. 색·여백·글꼴은 style.css 에서만 다룹니다. */
+﻿/* 동작 전담. 색·여백·글꼴은 style.css 에서만 다룹니다. */
 
 const CLIENT_ID = "60891083163-acnj22k5h7m921srilkdvbi8is0o60sv.apps.googleusercontent.com";
 const ENDPOINT  = "https://script.google.com/macros/s/AKfycbxBwVkyj3PLy0nKJmBXPFN-UweRpH99d-p3SbkF1XUQf4pKt086OcXHm1_UCcnA6W-X/exec";
@@ -96,8 +96,8 @@ function askProfile() {
   $("action").innerHTML = `
     <form id="profile-form">
       <input id="name" placeholder="이름" required>
-      <input id="sid" placeholder="학번 (숫자 12자리)" inputmode="numeric"
-             pattern="\\d{12}" maxlength="12" required>
+      <input id="sid" placeholder="학번 (숫자 10자리)" inputmode="numeric"
+             pattern="\\d{10}" maxlength="10" required>
       <button class="sign" type="submit">등록하고 방명록 남기기</button>
     </form>`;
   $("name").value = payload(credential).name || "";
@@ -131,3 +131,4 @@ window.onload = () => {
     $("status").textContent = "위 버튼으로 로그인해주세요";
   });
 };
+
