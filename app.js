@@ -1,4 +1,5 @@
-﻿/* 동작 전담. 색·여백·글꼴은 style.css 에서만 다룹니다. */
+/* 동작 전담. 색·크기·모션은 style.css 에서만 다룹니다.
+   여기서는 <body> 의 ph-* 클래스를 바꿀 뿐이고, 그 결과 보이는 모습은 전부 CSS 가 정합니다. */
 
 const CLIENT_ID = "60891083163-acnj22k5h7m921srilkdvbi8is0o60sv.apps.googleusercontent.com";
 const ENDPOINT  = "https://script.google.com/macros/s/AKfycbxBwVkyj3PLy0nKJmBXPFN-UweRpH99d-p3SbkF1XUQf4pKt086OcXHm1_UCcnA6W-X/exec";
@@ -12,12 +13,45 @@ const IN_APP = /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|NAVER|DaumApps|every
   .test(navigator.userAgent);
 
 const $ = id => document.getElementById(id);
+
 let credential = null;
-let profile = null;
+let profile = null;      // 신규 등록 시 함께 보낼 이름·학번
+let phase = "login";
+let burst = false;
+let blocked = false;
+let jelly = 0;
 
 const payload = jwt => JSON.parse(new TextDecoder().decode(
   Uint8Array.from(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0))
 ));
+
+const clock = () => {
+  const d = new Date();
+  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+};
+
+const sidOk = () => $("sid").value.length === 10;
+
+function paint() {
+  const cls = ["ph-" + phase];
+  if (phase === "new" && sidOk()) cls.push("ok");
+  if (burst) cls.push("burst-on");
+  if (blocked) cls.push("blocked");
+  document.body.className = cls.join(" ");
+}
+
+// 단계가 바뀔 때마다 버튼을 한 번 출렁이게 한다.
+// 같은 애니메이션을 다시 재생시키려고 지연 값을 카운터로 흘린다.
+function go(next) {
+  phase = next;
+  jelly += 1;
+  paint();
+  $("morph").style.animation = "jelly .72s cubic-bezier(.28,1.3,.4,1) " + jelly + "ms";
+}
+
+function say(text) {
+  $("status").textContent = text || "";
+}
 
 async function post(extra) {
   const r = await fetch(ENDPOINT, {
@@ -26,27 +60,6 @@ async function post(extra) {
     body: JSON.stringify(Object.assign({ credential: credential }, extra))
   });
   return r.json();
-}
-
-async function onCredential(res) {
-  credential = res.credential;
-  const p = payload(credential);
-  $("gbtn").innerHTML = "";
-  $("status").textContent = "확인 중…";
-  try {
-    const data = await post({ check: true });
-    if (data.needProfile) return askProfile();
-  } catch (e) {
-    /* 조회에 실패해도 버튼은 띄운다 */
-  }
-  $("status").textContent = "";
-  showButton((p.name || p.email) + "님으로 방명록 남기기");
-}
-
-function showButton(label) {
-  $("action").innerHTML = '<button class="sign" id="submit"></button>';
-  $("submit").textContent = label;
-  $("submit").onclick = () => submit();
 }
 
 const getPos = () => new Promise(done => {
@@ -58,58 +71,81 @@ const getPos = () => new Promise(done => {
   );
 });
 
-async function submit() {
-  const btn = $("submit");
-  btn.disabled = true;
-  $("status").textContent = "위치 확인 중…";
-  const geo = await getPos();
-  const pos = geo.error ? null : geo;
-  $("status").textContent = "기록 중…";
+async function onCredential(res) {
+  credential = res.credential;
+  const p = payload(credential);
+  $("meLabel").textContent = (p.name || p.email) + " 님으로";
+  go("auth");
+  say("");
   try {
-    const data = await post(Object.assign({ pos: pos }, profile));
-
-    if (data.needProfile) return askProfile();
-    if (data.recent) {
-      btn.textContent = "✓ 이미 기록됨";
-      $("status").textContent = "1시간 이내에 이미 남기셨어요.";
-    } else if (data.ok === true) {
-      btn.textContent = "✓ 기록 완료";
-      $("status").textContent = "방문해주셔서 감사합니다!";
-      if (navigator.vibrate) navigator.vibrate(60);
-    } else {
-      btn.disabled = false;
-      $("status").textContent = geo.error
-        ? POS_HELP[geo.error]
-        : "지금은 기록할 수 없습니다.";
-    }
+    const data = await post({ check: true });
+    go(data.needProfile ? "new" : "idle");
   } catch (e) {
-    btn.disabled = false;
-    $("status").textContent = "연결에 실패했습니다. 다시 눌러주세요.";
+    go("idle");   // 조회에 실패해도 진행은 막지 않는다
   }
 }
 
-function askProfile() {
-  $("action").innerHTML = `
-    <form id="profile-form">
-      <input id="name" placeholder="이름" required>
-      <input id="sid" placeholder="학번 (숫자 10자리)" inputmode="numeric"
-             pattern="\\d{10}" maxlength="10" required>
-      <button class="sign" type="submit">등록하고 방명록 남기기</button>
-    </form>`;
-  $("status").textContent = "처음 오셨네요. 이름과 학번을 입력해주세요.";
-  $("profile-form").onsubmit = ev => {
-    ev.preventDefault();
-    profile = { name: $("name").value.trim(), studentId: $("sid").value.trim() };
-    showButton("등록 중…");
-    submit();
-  };
+async function record() {
+  go("saving");
+  $("savingLabel").textContent = "위치 확인 중";
+  say("");
+
+  const geo = await getPos();
+  const pos = geo.error ? null : geo;
+  $("savingLabel").textContent = "기록 중";
+
+  try {
+    const data = await post(Object.assign({ pos: pos }, profile));
+
+    if (data.needProfile) { go("new"); return; }
+
+    if (data.ok === true || data.recent) {
+      const time = clock();
+      $("doneTime").textContent = time;
+      $("settledTime").textContent = time;
+      $("settledLabel").textContent = data.recent ? "이미 기록되어 있습니다" : "완료되었습니다";
+
+      if (data.recent) { go("settled"); return; }
+
+      if (navigator.vibrate) navigator.vibrate(60);
+      burst = true;
+      go("done");
+      setTimeout(() => { burst = false; paint(); }, 1000);
+      setTimeout(() => go("settled"), 1250);
+      return;
+    }
+
+    go("idle");
+    say(geo.error ? POS_HELP[geo.error] : "지금은 기록할 수 없습니다.");
+  } catch (e) {
+    go("idle");
+    say("연결에 실패했습니다. 다시 눌러주세요.");
+  }
 }
+
+$("sid").addEventListener("input", e => {
+  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
+  paint();
+});
+
+$("morph").addEventListener("click", () => {
+  if (phase === "new") {
+    const name = $("name").value.trim();
+    if (!name || !sidOk()) return;
+    profile = { name: name, studentId: $("sid").value };
+    go("rules");
+  } else if (phase === "rules") {
+    go("idle");
+  } else if (phase === "idle") {
+    record();
+  }
+});
 
 window.onload = () => {
   if (IN_APP) {
-    $("status").textContent =
-      "카카오톡 안에서는 구글 로그인이 되지 않습니다. " +
-      "오른쪽 아래 메뉴에서 '다른 브라우저로 열기'를 눌러주세요.";
+    blocked = true;
+    paint();
+    say("카카오톡 안에서는 구글 로그인이 되지 않습니다. 오른쪽 아래 메뉴에서 '다른 브라우저로 열기'를 눌러주세요.");
     return;
   }
 
@@ -121,12 +157,14 @@ window.onload = () => {
     itp_support: true,
     cancel_on_tap_outside: false
   });
-  google.accounts.id.renderButton($("gbtn"), {
-    theme: "filled_black", size: "large", text: "signin_with", shape: "pill", locale: "ko"
+  // 폭은 계정 이름 길이에 따라 달라지므로 고정하지 않는다
+  google.accounts.id.renderButton($("gsi"), {
+    theme: "filled_black", shape: "pill", size: "large", text: "signin_with", locale: "ko"
   });
   google.accounts.id.prompt(n => {
     if (!n.isDisplayed() && !n.isSkippedMoment()) return;
-    $("status").textContent = "위 버튼으로 로그인해주세요";
+    say("위 버튼으로 로그인해주세요");
   });
 };
 
+paint();

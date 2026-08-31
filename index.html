@@ -1,31 +1,115 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#08080A">
 <title>방명록</title>
 <link rel="icon" href="mana_logo.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap">
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
-<body>
-<main>
-  <img class="logo" src="mana_logo.png" alt="" width="462" height="462">
-  <h1>방명록</h1>
-  <p class="sub">구글 계정으로 방문을 남겨주세요</p>
+<body class="ph-login">
+<div id="stage">
 
-  <div id="gbtn"></div>
-  <div id="action"></div>
+  <div id="glow"></div>
+
+  <img id="logo" src="mana_logo.png" alt="" width="30" height="30">
+
+  <div id="title">방명록</div>
+
+  <div id="form">
+    <div class="form-title">신규 등록</div>
+    <input id="name" placeholder="이름" autocomplete="off" maxlength="40">
+    <input id="sid" placeholder="학번 10자리" inputmode="numeric" autocomplete="off" maxlength="10">
+  </div>
+
+  <div id="rules">
+    <div class="rules-title">! 동방 이용 주의사항 !</div>
+    <div class="rules-body">
+      <div class="rule">
+        <p class="rule-main">- 입실 시 반드시 방명록을 작성해 주세요.</p>
+        <p class="rule-sub">(동아리원 외 외부인 출입은 금지합니다.)</p>
+      </div>
+      <div class="rule">
+        <p class="rule-main">- 동방의 물건은 동방 안에서만 사용하는 것이 원칙입니다.</p>
+        <p class="rule-sub">(외부 반출이 필요한 경우, 비품신청서 작성 -&gt; 운영진 승인 후에 반출해 주세요.)</p>
+        <p class="rule-sub">(부족하거나 없는 비품에 대해서 신규 구매 신청이 가능합니다.)</p>
+        <p class="rule-sub">(파손, 분실 시 변상이 필요할 수 있습니다.)</p>
+      </div>
+      <div class="rules-line"></div>
+      <div class="rule">
+        <p class="rule-etc">기타</p>
+        <p class="rule-item">- 동방 내 취식은 되도록 자제해 주세요.</p>
+        <p class="rule-item">- 부득이하게 취식한 경우, 음식물 쓰레기는 반드시 본인이 외부에 배출해 주세요.</p>
+        <p class="rule-item">- 퇴실 시 정리 정돈과 소등, 문단속을 확인해 주세요.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="gsi"></div>
+
+  <button id="morph" type="button">
+    <span class="c c-auth"><i class="spin sm"></i></span>
+
+    <span class="c c-new">등록</span>
+
+    <span class="c c-rules">확인했습니다</span>
+
+    <span class="c c-idle">
+      <span class="idle-sub" id="meLabel"></span>
+      <span class="idle-main">작성하기</span>
+    </span>
+
+    <span class="c c-saving">
+      <i class="spin lg"></i>
+      <span class="saving-label" id="savingLabel">위치 확인 중</span>
+    </span>
+
+    <span class="c c-done">
+      <span class="burst">
+        <i class="shock"></i>
+        <i class="p" style="--a:0deg;   --s:10px; --d:.76s; --w:0s;   --c:#fff"></i>
+        <i class="p" style="--a:36deg;  --s:6px;  --d:.84s; --w:.03s; --c:#E7D6FF"></i>
+        <i class="p" style="--a:72deg;  --s:9px;  --d:.72s; --w:.06s; --c:#fff"></i>
+        <i class="p" style="--a:108deg; --s:7px;  --d:.80s; --w:.01s; --c:#E7D6FF"></i>
+        <i class="p" style="--a:144deg; --s:11px; --d:.78s; --w:.05s; --c:#fff"></i>
+        <i class="p" style="--a:180deg; --s:6px;  --d:.74s; --w:.02s; --c:#E7D6FF"></i>
+        <i class="p" style="--a:216deg; --s:9px;  --d:.86s; --w:.04s; --c:#fff"></i>
+        <i class="p" style="--a:252deg; --s:7px;  --d:.70s; --w:0s;   --c:#E7D6FF"></i>
+        <i class="p" style="--a:288deg; --s:10px; --d:.82s; --w:.06s; --c:#fff"></i>
+        <i class="p" style="--a:324deg; --s:6px;  --d:.76s; --w:.03s; --c:#E7D6FF"></i>
+      </span>
+      <span class="badge lg">
+        <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#6B21F7"
+             stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12.6 L9.4 18 L20 6.6"></path>
+        </svg>
+      </span>
+      <span class="done-main">완료</span>
+      <span class="done-time tnum" id="doneTime"></span>
+    </span>
+
+    <span class="c c-settled">
+      <span class="badge sm">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#6B21F7"
+             stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 12.6 L9.4 18 L20 6.6"></path>
+        </svg>
+      </span>
+      <span class="settled-text">
+        <span class="settled-main" id="settledLabel">완료되었습니다</span>
+        <span class="settled-time tnum" id="settledTime"></span>
+      </span>
+    </span>
+  </button>
+
   <p id="status">구글 계정 확인 중…</p>
-</main>
 
-<script src="app.js?v=6"></script>
+</div>
+
+<script src="app.js?v=7"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>
-
-
-
-
