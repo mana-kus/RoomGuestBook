@@ -19,13 +19,14 @@
 
   --grad-main: linear-gradient(158deg, #2B23C9 0%, #6B21F7 50%, #B03BF9 100%);
   --grad-btn:  linear-gradient(135deg, #3A18C4, #B03BF9);
+  --grad-fail: linear-gradient(158deg, #8E1024 0%, #D42036 52%, #FF5A4E 100%);
   --sh-btn:    0 18px 40px -20px rgba(72, 33, 220, .7);
   --sh-plate:  0 30px 60px -26px rgba(72, 33, 220, .6);
+  --sh-fail:   0 30px 60px -26px rgba(212, 32, 54, .6);
 
   /* 기준 캔버스 844px 에서의 값을 화면 높이에 맞춰 환산 */
   --mid:       50%;                  /* 422 */
   --bottom:    calc(100% - 86px);    /* 758 */
-  --settled:   186px;
 }
 
 * { box-sizing: border-box; }
@@ -67,20 +68,27 @@ body {
   z-index: 3;
 }
 
+/* 위·아래 양쪽에서 번지게 한다 */
 #glow {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   opacity: 0;
-  background: radial-gradient(120% 62% at 50% 12%,
-    rgba(176, 59, 249, .42) 0%,
-    rgba(107, 33, 247, .24) 34%,
-    rgba(43, 35, 201, .10) 58%,
-    transparent 78%);
 }
 .ph-done #glow,
-.ph-settled #glow { animation: glowin .9s cubic-bezier(.2, .8, .3, 1) both; }
+.ph-settled #glow {
+  background:
+    radial-gradient(120% 52% at 50% 4%,  rgba(176, 59, 249, .40) 0%, rgba(107, 33, 247, .22) 36%, transparent 72%),
+    radial-gradient(120% 52% at 50% 96%, rgba(176, 59, 249, .40) 0%, rgba(107, 33, 247, .22) 36%, transparent 72%);
+  animation: glowin .9s cubic-bezier(.2, .8, .3, 1) both;
+}
+.ph-failed #glow {
+  background:
+    radial-gradient(120% 52% at 50% 4%,  rgba(255, 90, 78, .32) 0%, rgba(212, 32, 54, .20) 36%, transparent 72%),
+    radial-gradient(120% 52% at 50% 96%, rgba(255, 90, 78, .32) 0%, rgba(212, 32, 54, .20) 36%, transparent 72%);
+  animation: glowin .7s cubic-bezier(.2, .8, .3, 1) both;
+}
 
 #title {
   position: absolute;
@@ -145,14 +153,13 @@ body {
   position: absolute;
   left: 26px; right: 26px;
   top: 96px;
-  bottom: 130px;
+  bottom: 144px;
   flex-direction: column;
   overflow-y: auto;
   scrollbar-width: none;
   animation: fadeup .45s cubic-bezier(.2, .8, .3, 1) both;
 }
 #rules::-webkit-scrollbar { display: none; }
-.ph-settled #rules { top: 250px; bottom: 30px; }
 
 .rules-title {
   flex: none;
@@ -217,7 +224,8 @@ body {
 .ph-idle    #morph,
 .ph-done    #morph { width: 330px; height: 392px; border-radius: 30px; background: var(--grad-main); box-shadow: var(--sh-plate); }
 .ph-saving  #morph { width: 330px; height: 392px; border-radius: 30px; background: var(--loading); border: 1px solid var(--line-2); }
-.ph-settled #morph { width: 330px; height: 76px;  border-radius: 20px; background: var(--grad-btn); box-shadow: var(--sh-btn); top: var(--settled); }
+.ph-failed  #morph { width: 330px; height: 392px; border-radius: 30px; background: var(--grad-fail); box-shadow: var(--sh-fail); }
+.ph-settled #morph { width: 330px; height: 76px;  border-radius: 20px; background: var(--grad-btn); box-shadow: var(--sh-btn); top: var(--bottom); }
 
 /* idle 판의 광택 */
 .ph-idle #morph::before,
@@ -240,6 +248,7 @@ body {
 .ph-idle    .c-idle,
 .ph-saving  .c-saving,
 .ph-done    .c-done,
+.ph-failed  .c-failed,
 .ph-settled .c-settled { display: flex; align-items: center; justify-content: center; }
 
 /* 상자가 커지는 동안 내용이 잘리지 않도록 등장을 늦춘다 */
@@ -260,6 +269,18 @@ body {
 
 .c-saving     { flex-direction: column; gap: 18px; }
 .saving-label { font: 500 15px Pretendard, sans-serif; color: var(--muted); }
+
+/* 실패 판에는 광택 오버레이를 걸지 않는다 — X 위에 사각형이 겹쳐 보인다 */
+.c-failed { flex-direction: column; gap: 16px; animation: swapin .34s cubic-bezier(.2, .9, .3, 1) .16s both; }
+.failed-main   { font: 700 30px Pretendard, sans-serif; color: #fff; }
+.failed-reason {
+  font: 500 14px/1.65 Pretendard, sans-serif;
+  color: #fff;
+  opacity: .88;
+  text-align: center;
+  padding: 0 6px;
+  white-space: normal;
+}
 
 .c-done    { position: relative; flex-direction: column; gap: 16px; }
 .done-main { position: relative; font: 700 30px Pretendard, sans-serif; color: #fff; }
@@ -338,9 +359,10 @@ body {
 
 .ph-auth #morph, .ph-new #morph, .ph-rules #morph,
 .ph-idle #morph, .ph-saving #morph, .ph-done #morph,
-.ph-settled #morph { display: flex; }
+.ph-failed #morph, .ph-settled #morph { display: flex; }
 
-.ph-rules #status, .ph-settled #status, .blocked #gsi { display: none; }
+.ph-rules #status, .ph-settled #status, .ph-failed #status,
+.blocked #gsi { display: none; }
 
 /* ── 키프레임 ────────────────────────────────────────────────── */
 
@@ -361,6 +383,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   #title, #form, #rules, #glow, .c, .badge.lg { animation: none !important; }
+  .ph-done #glow, .ph-settled #glow, .ph-failed #glow { animation: none !important; opacity: 1; }
   .burst { display: none !important; }
   #morph { transition-duration: .01s; }
 }

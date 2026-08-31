@@ -53,6 +53,13 @@ function say(text) {
   $("status").textContent = text || "";
 }
 
+// 실패 판 안에 들어갈 문자열. 서버·브라우저가 준 것만 그대로 보여준다.
+function fail(text) {
+  $("failReason").textContent = text || "";
+  say("");
+  go("failed");
+}
+
 async function post(extra) {
   const r = await fetch(ENDPOINT, {
     method: "POST",
@@ -115,11 +122,9 @@ async function record() {
       return;
     }
 
-    go("idle");
-    say(geo.error ? POS_HELP[geo.error] : "지금은 기록할 수 없습니다.");
+    fail(geo.error ? POS_HELP[geo.error] : "지금은 기록할 수 없습니다.");
   } catch (e) {
-    go("idle");
-    say("연결에 실패했습니다. 다시 눌러주세요.");
+    fail("연결에 실패했습니다. 다시 눌러주세요.");
   }
 }
 
@@ -136,8 +141,8 @@ $("morph").addEventListener("click", () => {
     go("rules");
   } else if (phase === "rules") {
     go("idle");
-  } else if (phase === "idle") {
-    record();
+  } else if (phase === "idle" || phase === "failed") {
+    record();   // 실패 판을 다시 누르면 재시도
   }
 });
 
