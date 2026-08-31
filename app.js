@@ -19,10 +19,26 @@ const payload = jwt => JSON.parse(new TextDecoder().decode(
   Uint8Array.from(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0))
 ));
 
-function onCredential(res) {
+async function post(extra) {
+  const r = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(Object.assign({ credential: credential }, extra))
+  });
+  return r.json();
+}
+
+async function onCredential(res) {
   credential = res.credential;
   const p = payload(credential);
   $("gbtn").innerHTML = "";
+  $("status").textContent = "확인 중…";
+  try {
+    const data = await post({ check: true });
+    if (data.needProfile) return askProfile();
+  } catch (e) {
+    /* 조회에 실패해도 버튼은 띄운다 */
+  }
   $("status").textContent = "";
   showButton((p.name || p.email) + "님으로 방명록 남기기");
 }
@@ -50,12 +66,7 @@ async function submit() {
   const pos = geo.error ? null : geo;
   $("status").textContent = "기록 중…";
   try {
-    const r = await fetch(ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(Object.assign({ credential: credential, pos: pos }, profile))
-    });
-    const data = await r.json();
+    const data = await post(Object.assign({ pos: pos }, profile));
 
     if (data.needProfile) return askProfile();
     if (data.recent) {
@@ -91,7 +102,6 @@ function askProfile() {
              pattern="\\d{10}" maxlength="10" required>
       <button class="sign" type="submit">등록하고 방명록 남기기</button>
     </form>`;
-  $("name").value = payload(credential).name || "";
   $("status").textContent = "처음 오셨네요. 이름과 학번을 입력해주세요.";
   $("profile-form").onsubmit = ev => {
     ev.preventDefault();
