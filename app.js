@@ -69,14 +69,25 @@ async function post(extra) {
   return r.json();
 }
 
-const getPos = () => new Promise(done => {
+// timeout 은 권한 팝업을 띄워둔 시간까지 함께 센다. 처음 오는 사람은 팝업을 읽고
+// 누르는 동안 시간이 흐르므로 넉넉히 준다. maximumAge 는 최근에 잡아둔 위치를
+// 그대로 쓰게 해서 두 번째부터는 기다림이 없다.
+const getPos = timeout => new Promise(done => {
   if (!navigator.geolocation) return done({ error: "unavailable" });
   navigator.geolocation.getCurrentPosition(
     p => done({ lat: p.coords.latitude, lon: p.coords.longitude, acc: Math.round(p.coords.accuracy) }),
     e => done({ error: e.code === 1 ? "denied" : "unavailable" }),
-    { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+    { enableHighAccuracy: false, timeout: timeout, maximumAge: 300000 }
   );
 });
+
+// 첫 측위는 콜드 스타트라 한 번에 실패하는 일이 잦다. 시간이 모자라 실패한 경우에만
+// 한 번 더 시도한다. 사용자가 거부한 경우(denied)는 다시 물어도 소용없으므로 그대로 둔다.
+async function pos() {
+  const first = await getPos(20000);
+  if (first.error !== "unavailable") return first;
+  return getPos(20000);
+}
 
 // 로그인만 하면 바로 기록한다. 누를 것이 없다.
 // 등록된 계정인지는 서버가 이 요청 안에서 판단해 needProfile 로 알려주므로,
@@ -94,12 +105,11 @@ async function record() {
   $("savingLabel").textContent = "위치 확인 중";
   say("");
 
-  const geo = await getPos();
-  const pos = geo.error ? null : geo;
+  const geo = await pos();
   $("savingLabel").textContent = "기록 중";
 
   try {
-    const data = await post(Object.assign({ pos: pos }, profile));
+    const data = await post(Object.assign({ pos: geo.error ? null : geo }, profile));
 
     if (data.needProfile) { go("new"); return; }
 
