@@ -69,20 +69,27 @@ function showButton(label) {
 }
 
 const getPos = () => new Promise(done => {
-  if (!navigator.geolocation) return done(null);
+  if (!navigator.geolocation) return done({ error: "unavailable" });
   navigator.geolocation.getCurrentPosition(
     p => done({ lat: p.coords.latitude, lon: p.coords.longitude, acc: Math.round(p.coords.accuracy) }),
-    () => done(null),
+    e => done({ error: e.code === 1 ? "denied" : "unavailable" }),
     { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
   );
 });
+
+const POS_HELP = {
+  denied: "위치 권한이 차단되어 있습니다. 주소창의 자물쇠(또는 ⓘ) → 권한 → 위치를 " +
+          "'허용'으로 바꾼 뒤 새로고침해주세요.",
+  unavailable: "위치를 찾지 못했습니다. 창가로 이동하거나 잠시 후 다시 눌러주세요."
+};
 
 async function submit() {
   const btn = $("submit");
   btn.disabled = true;
   $("status").textContent = "위치 확인 중…";
-  const pos = await getPos();
-  $("status").textContent = pos ? "기록 중…" : "기록 중… (위치 없이)";
+  const geo = await getPos();
+  const pos = geo.error ? null : geo;
+  $("status").textContent = "기록 중…";
   try {
     const r = await fetch(ENDPOINT, {
       method: "POST",
@@ -100,9 +107,9 @@ async function submit() {
       $("status").textContent = "방문해주셔서 감사합니다!";
     } else {
       btn.disabled = false;
-      $("status").textContent = pos
-        ? "지금은 기록할 수 없습니다."
-        : "위치 권한을 허용한 뒤 다시 눌러주세요.";
+      $("status").textContent = geo.error
+        ? POS_HELP[geo.error]
+        : "지금은 기록할 수 없습니다.";
     }
     showRoster(data);
   } catch (e) {
