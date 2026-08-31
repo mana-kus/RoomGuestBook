@@ -151,7 +151,6 @@ body {
   animation: fadeup .45s cubic-bezier(.2, .8, .3, 1) both;
 }
 #rules::-webkit-scrollbar { display: none; }
-.ph-settled #rules { top: 250px; bottom: 30px; }
 
 .rules-title {
   flex: none;
@@ -333,7 +332,7 @@ body {
 .ph-login  #title,  .ph-auth #title,
 .ph-login  #gsi,
 .ph-new    #form,
-.ph-rules  #rules,  .ph-settled #rules { display: block; }
+.ph-rules  #rules { display: block; }
 
 .ph-login #gsi { display: flex; }
 
@@ -341,7 +340,7 @@ body {
 .ph-idle #morph, .ph-saving #morph, .ph-done #morph,
 .ph-settled #morph { display: flex; }
 
-.ph-rules #status, .ph-settled #status, .blocked #gsi { display: none; }
+.ph-rules #status, .blocked #gsi { display: none; }
 
 /* ── 키프레임 ────────────────────────────────────────────────── */
 
