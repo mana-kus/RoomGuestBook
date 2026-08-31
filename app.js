@@ -78,14 +78,15 @@ const getPos = () => new Promise(done => {
   );
 });
 
-// 로그인하면 곧장 작성 화면으로 보낸다. 신규인지 아닌지는 서버에 미리 묻지 않고,
-// 실제로 눌렀을 때 돌아오는 needProfile 로 판단한다 — 왕복 한 번이 줄어든다.
+// 로그인만 하면 바로 기록한다. 누를 것이 없다.
+// 등록된 계정인지는 서버가 이 요청 안에서 판단해 needProfile 로 알려주므로,
+// 미리 물어보는 왕복을 따로 두지 않는다.
 function onCredential(res) {
   credential = res.credential;
   const p = payload(credential);
   $("meLabel").textContent = (p.name || p.email) + " 님으로";
   say("");
-  go("idle");
+  record();
 }
 
 async function record() {
@@ -136,8 +137,8 @@ $("morph").addEventListener("click", () => {
     profile = { name: name, studentId: $("sid").value };
     go("rules");
   } else if (phase === "rules") {
-    go("idle");
-  } else if (phase === "idle" || phase === "failed") {
+    record();   // 주의사항을 확인하면 그대로 기록까지 간다
+  } else if (phase === "failed") {
     record();   // 실패 판을 다시 누르면 재시도
   }
 });
