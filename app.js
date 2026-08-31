@@ -11,10 +11,6 @@ const POS_HELP = {
 const IN_APP = /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|NAVER|DaumApps|everytime/i
   .test(navigator.userAgent);
 
-/* 주소 뒤에 ?debug=1 을 붙이면 실패 원인을 화면에 그대로 보여줍니다. */
-const DEBUG = location.search.indexOf("debug") >= 0;
-const detail = t => DEBUG ? "  [" + t + "]" : "";
-
 const $ = id => document.getElementById(id);
 let credential = null;
 let profile = null;
@@ -38,15 +34,10 @@ function showButton(label) {
 }
 
 const getPos = () => new Promise(done => {
-  if (!navigator.geolocation) {
-    return done({ error: "unavailable", why: "geolocation 없음 / " + location.protocol });
-  }
+  if (!navigator.geolocation) return done({ error: "unavailable" });
   navigator.geolocation.getCurrentPosition(
     p => done({ lat: p.coords.latitude, lon: p.coords.longitude, acc: Math.round(p.coords.accuracy) }),
-    e => done({
-      error: e.code === 1 ? "denied" : "unavailable",
-      why: "code " + e.code + " " + e.message + " / " + location.protocol
-    }),
+    e => done({ error: e.code === 1 ? "denied" : "unavailable" }),
     { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
   );
 });
@@ -76,8 +67,8 @@ async function submit() {
     } else {
       btn.disabled = false;
       $("status").textContent = geo.error
-        ? POS_HELP[geo.error] + detail(geo.why)
-        : "지금은 기록할 수 없습니다." + detail(data.reason || "서버 거부 · 위치는 정상 전송됨");
+        ? POS_HELP[geo.error]
+        : "지금은 기록할 수 없습니다.";
     }
     showRoster(data);
   } catch (e) {
