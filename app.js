@@ -81,17 +81,10 @@ async function submit() {
         ? POS_HELP[geo.error]
         : "지금은 기록할 수 없습니다.";
     }
-    showRoster(data);
   } catch (e) {
     btn.disabled = false;
     $("status").textContent = "연결에 실패했습니다. 다시 눌러주세요.";
   }
-}
-
-function showRoster(data) {
-  if (!data.visitors || !data.visitors.length) return;
-  const more = data.more ? ` 외 ${data.more}명` : "";
-  $("roster").textContent = "최근 1시간 입장: " + data.visitors.join(", ") + more;
 }
 
 function askProfile() {

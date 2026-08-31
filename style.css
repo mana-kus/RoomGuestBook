@@ -1,4 +1,4 @@
-/* 디자인 전담. 동작에 관여하는 코드는 여기에 두지 않습니다. */
+﻿/* 디자인 전담. 동작에 관여하는 코드는 여기에 두지 않습니다. */
 
 :root {
   --ink:     #0a0b14;
@@ -104,12 +104,6 @@ input:invalid:not(:placeholder-shown) { border-color: var(--danger); }
   color: var(--muted);
 }
 
-#roster {
-  margin: .9rem 0 0;
-  font-size: .8rem;
-  line-height: 1.6;
-  color: var(--faint);
-}
 
 @keyframes rise  { from { opacity: 0; transform: translateY(.75rem); } }
 @keyframes float { 50% { transform: translateY(-.4rem); } }
@@ -117,3 +111,4 @@ input:invalid:not(:placeholder-shown) { border-color: var(--danger); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before { animation: none !important; }
 }
+
