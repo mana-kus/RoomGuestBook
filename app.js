@@ -77,7 +77,7 @@ async function submit() {
       btn.disabled = false;
       $("status").textContent = geo.error
         ? POS_HELP[geo.error] + detail(geo.why)
-        : "지금은 기록할 수 없습니다." + detail("서버 거부 · 위치는 정상 전송됨");
+        : "지금은 기록할 수 없습니다." + detail(data.reason || "서버 거부 · 위치는 정상 전송됨");
     }
     showRoster(data);
   } catch (e) {
