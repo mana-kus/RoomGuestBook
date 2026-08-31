@@ -123,6 +123,16 @@ input {
   z-index: 2;
 }
 
+/* 로그인 화면에서만 보이는 판 번호 */
+#ver {
+  position: absolute;
+  right: 14px;
+  bottom: 12px;
+  font: 400 10px/1 Pretendard, sans-serif;
+  color: var(--muted-3);
+  z-index: 2;
+}
+
 /* ── 신규 등록 폼 ────────────────────────────────────────────── */
 
 #form {
@@ -366,7 +376,9 @@ input {
 
 /* ── 단계별 표시 ─────────────────────────────────────────────── */
 
-:where(#title, #form, #rules, #gsi, #morph) { display: none; }
+:where(#title, #form, #rules, #gsi, #morph, #ver) { display: none; }
+
+.ph-login #ver { display: block; }
 
 .ph-login #title, .ph-auth #title,
 .ph-new   #form { display: block; }

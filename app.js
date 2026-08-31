@@ -1,6 +1,9 @@
 /* 동작 전담. 색·크기·모션은 style.css 에서만 다룹니다.
    여기서는 <body> 의 ph-* 클래스를 바꿀 뿐이고, 그 결과 보이는 모습은 전부 CSS 가 정합니다. */
 
+// 화면 우측 아래에 찍히는 판 번호. index.html 의 ?v= 와 같은 값으로 올린다.
+const VERSION = "v23";
+
 const CLIENT_ID = "60891083163-acnj22k5h7m921srilkdvbi8is0o60sv.apps.googleusercontent.com";
 const ENDPOINT  = "https://script.google.com/macros/s/AKfycbxBwVkyj3PLy0nKJmBXPFN-UweRpH99d-p3SbkF1XUQf4pKt086OcXHm1_UCcnA6W-X/exec";
 
@@ -195,6 +198,8 @@ $("morph").addEventListener("click", () => {
 });
 
 window.onload = () => {
+  $("ver").textContent = VERSION;
+
   if (IN_APP) {
     blocked = true;
     paint();
