@@ -1,8 +1,8 @@
-/* 동작 전담. 색·크기·모션은 style.css 에서만 다룹니다.
+﻿/* 동작 전담. 색·크기·모션은 style.css 에서만 다룹니다.
    여기서는 <body> 의 ph-* 클래스를 바꿀 뿐이고, 그 결과 보이는 모습은 전부 CSS 가 정합니다. */
 
 // 화면 우측 아래에 찍히는 판 번호. index.html 의 ?v= 와 같은 값으로 올린다.
-const VERSION = "v23";
+const VERSION = "v24";
 
 const CLIENT_ID = "60891083163-acnj22k5h7m921srilkdvbi8is0o60sv.apps.googleusercontent.com";
 const ENDPOINT  = "https://script.google.com/macros/s/AKfycbxBwVkyj3PLy0nKJmBXPFN-UweRpH99d-p3SbkF1XUQf4pKt086OcXHm1_UCcnA6W-X/exec";
@@ -97,7 +97,11 @@ const getPos = (timeout, gps) => new Promise(done => {
 
   timer = setTimeout(() => finish({ error: "unavailable" }), timeout);
   id = navigator.geolocation.watchPosition(
-    p => finish({ lat: p.coords.latitude, lon: p.coords.longitude }),
+    p => finish({
+      lat: p.coords.latitude,
+      lon: p.coords.longitude,
+      acc: Math.round(p.coords.accuracy)   // 오차 크기. 좌표가 아니라 측위 상태를 보는 값이다
+    }),
     e => { if (e.code === 1) finish({ error: "denied" }); },   // 거부는 즉시, 그 외는 계속 기다린다
     { enableHighAccuracy: !!gps, timeout: timeout, maximumAge: 300000 }
   );
@@ -228,3 +232,4 @@ window.onload = () => {
 };
 
 paint();
+
