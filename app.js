@@ -127,10 +127,7 @@ function onCredential(res) {
 
 async function record() {
   go("saving");
-  // 아직 허락하지 않은 사람에게는 곧 팝업이 뜬다는 것을 알려준다.
-  // 팝업을 못 보고 지나치면 그냥 기다리는 줄 알기 때문이다.
-  $("savingLabel").textContent =
-    permission === "prompt" ? "위치 권한을 허용해주세요" : "위치 확인 중";
+  $("savingLabel").textContent = "위치 확인 중";
   say("");
 
   const geo = await pos();
