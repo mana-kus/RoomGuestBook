@@ -78,11 +78,24 @@ async function post(extra) {
 // timeout 은 권한 팝업을 띄워둔 시간까지 함께 센다. 처음 오는 사람은 팝업을 읽고
 // 누르는 동안 시간이 흐르므로 넉넉히 준다. maximumAge 는 최근에 잡아둔 위치를
 // 그대로 쓰게 해서 두 번째부터는 기다림이 없다.
+// getCurrentPosition 은 쓸 만한 값 하나를 만들어 주려고 시간을 쓴다.
+// watchPosition 은 잡히는 족족 던져주므로 첫 값을 받고 바로 끊는다 —
+// 반경 판정만 할 것이라 정확도는 필요 없고, 대략의 위치면 충분하다.
 const getPos = (timeout, gps) => new Promise(done => {
   if (!navigator.geolocation) return done({ error: "unavailable" });
-  navigator.geolocation.getCurrentPosition(
-    p => done({ lat: p.coords.latitude, lon: p.coords.longitude, acc: Math.round(p.coords.accuracy) }),
-    e => done({ error: e.code === 1 ? "denied" : "unavailable" }),
+
+  let id = null;
+  let timer = null;
+  const finish = v => {
+    if (id !== null) navigator.geolocation.clearWatch(id);
+    clearTimeout(timer);
+    done(v);
+  };
+
+  timer = setTimeout(() => finish({ error: "unavailable" }), timeout);
+  id = navigator.geolocation.watchPosition(
+    p => finish({ lat: p.coords.latitude, lon: p.coords.longitude }),
+    e => { if (e.code === 1) finish({ error: "denied" }); },   // 거부는 즉시, 그 외는 계속 기다린다
     { enableHighAccuracy: !!gps, timeout: timeout, maximumAge: 300000 }
   );
 });
