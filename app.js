@@ -112,7 +112,10 @@ window.onload = () => {
   google.accounts.id.initialize({
     client_id: CLIENT_ID,
     callback: onCredential,
-    auto_select: true
+    auto_select: true,
+    use_fedcm_for_prompt: true,
+    itp_support: true,
+    cancel_on_tap_outside: false
   });
   google.accounts.id.renderButton($("gbtn"), {
     theme: "filled_black", size: "large", text: "signin_with", shape: "pill", locale: "ko"
