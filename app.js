@@ -12,6 +12,9 @@ const POS_HELP = {
 const IN_APP = /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|NAVER|DaumApps|everytime/i
   .test(navigator.userAgent);
 
+const WAIT_READY  = 8000;    // 권한이 이미 있을 때 — 측위만 기다리면 된다
+const WAIT_PROMPT = 20000;   // 아직 허락 전 — 팝업을 읽고 누르는 시간이 포함된다
+
 const $ = id => document.getElementById(id);
 
 let credential = null;
@@ -94,7 +97,7 @@ function warmUp() {
     .then(p => {
       permission = p.state;
       p.onchange = () => { permission = p.state; };
-      if (p.state === "granted") warm = getPos(20000);
+      if (p.state === "granted") warm = getPos(WAIT_READY);
     })
     .catch(() => {});
 }
@@ -107,9 +110,11 @@ async function pos() {
     warm = null;
     if (!ready.error) return ready;
   }
-  const first = await getPos(20000);
+  // 팝업을 읽고 누르는 시간까지 timeout 에 포함되므로, 아직 허락 전인 사람에게만 길게 준다.
+  const ms = permission === "prompt" ? WAIT_PROMPT : WAIT_READY;
+  const first = await getPos(ms);
   if (first.error !== "unavailable") return first;
-  return getPos(20000);
+  return getPos(ms);
 }
 
 // 로그인만 하면 바로 기록한다. 누를 것이 없다.
