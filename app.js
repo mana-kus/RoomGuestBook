@@ -87,10 +87,15 @@ const getPos = timeout => new Promise(done => {
 // 로그인하는 동안 끝내둔다. 아직 허락하지 않은 사람에게는 손대지 않는다 —
 // 로그인도 하기 전에 위치 팝업이 뜨면 당황스럽고, 팝업을 읽는 시간이 timeout 을 잡아먹는다.
 let warm = null;
+let permission = null;   // "granted" | "prompt" | "denied" | null(알 수 없음)
 function warmUp() {
   if (!navigator.permissions || !navigator.geolocation) return;
   navigator.permissions.query({ name: "geolocation" })
-    .then(p => { if (p.state === "granted") warm = getPos(20000); })
+    .then(p => {
+      permission = p.state;
+      p.onchange = () => { permission = p.state; };
+      if (p.state === "granted") warm = getPos(20000);
+    })
     .catch(() => {});
 }
 
@@ -120,7 +125,10 @@ function onCredential(res) {
 
 async function record() {
   go("saving");
-  $("savingLabel").textContent = "위치 확인 중";
+  // 아직 허락하지 않은 사람에게는 곧 팝업이 뜬다는 것을 알려준다.
+  // 팝업을 못 보고 지나치면 그냥 기다리는 줄 알기 때문이다.
+  $("savingLabel").textContent =
+    permission === "prompt" ? "위치 권한을 허용해주세요" : "위치 확인 중";
   say("");
 
   const geo = await pos();
