@@ -78,18 +78,14 @@ const getPos = () => new Promise(done => {
   );
 });
 
-async function onCredential(res) {
+// 로그인하면 곧장 작성 화면으로 보낸다. 신규인지 아닌지는 서버에 미리 묻지 않고,
+// 실제로 눌렀을 때 돌아오는 needProfile 로 판단한다 — 왕복 한 번이 줄어든다.
+function onCredential(res) {
   credential = res.credential;
   const p = payload(credential);
   $("meLabel").textContent = (p.name || p.email) + " 님으로";
-  go("auth");
   say("");
-  try {
-    const data = await post({ check: true });
-    go(data.needProfile ? "new" : "idle");
-  } catch (e) {
-    go("idle");   // 조회에 실패해도 진행은 막지 않는다
-  }
+  go("idle");
 }
 
 async function record() {
