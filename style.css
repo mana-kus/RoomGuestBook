@@ -139,18 +139,20 @@ body {
 
 /* ── 주의사항 ────────────────────────────────────────────────── */
 
+/* display 는 여기서 정하지 않는다. 단계별 규칙(.ph-*)이 켜고 끈다 —
+   여기에 쓰면 특이성이 높아 숨김이 먹지 않는다. */
 #rules {
   position: absolute;
   left: 26px; right: 26px;
   top: 96px;
   bottom: 130px;
-  display: flex;
   flex-direction: column;
   overflow-y: auto;
   scrollbar-width: none;
   animation: fadeup .45s cubic-bezier(.2, .8, .3, 1) both;
 }
 #rules::-webkit-scrollbar { display: none; }
+.ph-settled #rules { top: 250px; bottom: 30px; }
 
 .rules-title {
   flex: none;
@@ -176,7 +178,6 @@ body {
   top: var(--mid);
   transform: translate(-50%, -50%);
   z-index: 3;
-  display: flex;
   justify-content: center;
 }
 
@@ -189,7 +190,6 @@ body {
   transform: translate(-50%, -50%);
   z-index: 3;
   padding: 0;
-  display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -329,18 +329,18 @@ body {
 
 :where(#title, #form, #rules, #gsi, #morph) { display: none; }
 
-.ph-login  #title,  .ph-auth #title,
-.ph-login  #gsi,
-.ph-new    #form,
-.ph-rules  #rules { display: block; }
+.ph-login #title, .ph-auth #title,
+.ph-new   #form { display: block; }
 
-.ph-login #gsi { display: flex; }
+.ph-login   #gsi   { display: flex; }
+.ph-rules   #rules,
+.ph-settled #rules { display: flex; }
 
 .ph-auth #morph, .ph-new #morph, .ph-rules #morph,
 .ph-idle #morph, .ph-saving #morph, .ph-done #morph,
 .ph-settled #morph { display: flex; }
 
-.ph-rules #status, .blocked #gsi { display: none; }
+.ph-rules #status, .ph-settled #status, .blocked #gsi { display: none; }
 
 /* ── 키프레임 ────────────────────────────────────────────────── */
 
