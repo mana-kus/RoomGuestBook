@@ -83,9 +83,25 @@ const getPos = timeout => new Promise(done => {
   );
 });
 
+// 이미 권한을 허용한 사람은 팝업이 뜨지 않으므로, 페이지가 열리자마자 측위를 시작해
+// 로그인하는 동안 끝내둔다. 아직 허락하지 않은 사람에게는 손대지 않는다 —
+// 로그인도 하기 전에 위치 팝업이 뜨면 당황스럽고, 팝업을 읽는 시간이 timeout 을 잡아먹는다.
+let warm = null;
+function warmUp() {
+  if (!navigator.permissions || !navigator.geolocation) return;
+  navigator.permissions.query({ name: "geolocation" })
+    .then(p => { if (p.state === "granted") warm = getPos(20000); })
+    .catch(() => {});
+}
+
 // 첫 측위는 콜드 스타트라 한 번에 실패하는 일이 잦다. 시간이 모자라 실패한 경우에만
 // 한 번 더 시도한다. 사용자가 거부한 경우(denied)는 다시 물어도 소용없으므로 그대로 둔다.
 async function pos() {
+  if (warm) {
+    const ready = await warm;
+    warm = null;
+    if (!ready.error) return ready;
+  }
   const first = await getPos(20000);
   if (first.error !== "unavailable") return first;
   return getPos(20000);
@@ -163,6 +179,8 @@ window.onload = () => {
     say("카카오톡 안에서는 구글 로그인이 되지 않습니다. 오른쪽 아래 메뉴에서 '다른 브라우저로 열기'를 눌러주세요.");
     return;
   }
+
+  warmUp();
 
   google.accounts.id.initialize({
     client_id: CLIENT_ID,
