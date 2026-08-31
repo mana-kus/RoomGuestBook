@@ -232,7 +232,9 @@ body {
 
 /* ── 버튼 안 내용 ────────────────────────────────────────────── */
 
-#morph .c { display: none; white-space: nowrap; }
+/* :where() 로 감싸 특이성을 0으로 만든다.
+   그러지 않으면 이 숨김 규칙이 아래 단계별 표시 규칙(.ph-* )을 눌러버린다. */
+:where(#morph) .c { display: none; white-space: nowrap; }
 .ph-auth    .c-auth,
 .ph-new     .c-new,
 .ph-rules   .c-rules,
@@ -326,7 +328,7 @@ body {
 
 /* ── 단계별 표시 ─────────────────────────────────────────────── */
 
-#title, #form, #rules, #gsi, #morph { display: none; }
+:where(#title, #form, #rules, #gsi, #morph) { display: none; }
 
 .ph-login  #title,  .ph-auth #title,
 .ph-login  #gsi,
