@@ -288,6 +288,25 @@ function visitorRow(v) {
   return row;
 }
 
+// 자기 몫의 남은 조회 수는 본인 정보라 보여줘도 된다. 남에 대해서는 아무것도 말하지 않는다.
+// 서버가 안 보내면 아무것도 그리지 않는다.
+function quotaNote(data) {
+  if (typeof data.left !== "number") return null;
+
+  const p = document.createElement("p");
+  p.className = "visitors-quota";
+
+  const reset = typeof data.resetAt === "string" && data.resetAt
+    ? " (" + data.resetAt + " 초기화)"
+    : "";
+  const total = typeof data.quota === "number" ? "/" + data.quota : "";
+
+  p.textContent = data.left > 0
+    ? "남은 조회 " + data.left + total + "회" + reset
+    : "조회 한도를 모두 썼습니다" + reset;
+  return p;
+}
+
 async function loadVisitors() {
   if (visitorsBusy) return;
   visitorsBusy = true;
@@ -308,22 +327,31 @@ async function loadVisitors() {
     return;
   }
 
-  // 받았는데 목록이 없으면 전부 같은 문장으로 덮는다.
+  if (Array.isArray(data.visitors)) {
+    const list = document.createDocumentFragment();
+    if (!data.visitors.length) {
+      list.appendChild(visitorsNote("이 시간대에는 입장 기록이 없습니다."));
+    } else {
+      data.visitors.forEach(v => list.appendChild(visitorRow(v)));
+      if (data.more > 0) list.appendChild(visitorsNote("외 " + data.more + "명"));
+    }
+    const q = quotaNote(data);
+    if (q) list.appendChild(q);
+    visitorsShow(list);
+    return;
+  }
+
+  // 목록은 없지만 내 조회 한도를 알려준 경우. 목록 없이 혼자 뜨므로 본문 취급한다.
+  const own = quotaNote(data);
+  if (own) {
+    own.className = "visitors-note";
+    visitorsShow(own);
+    return;
+  }
+
+  // 그 밖의 실패는 이유를 가리지 않고 전부 같은 문장으로 덮는다.
   // 경우를 나눠 보여주면 그 구분 자체가 서버 상태를 알려주는 통로가 된다.
-  if (!Array.isArray(data.visitors)) {
-    visitorsShow(visitorsNote("지금은 명단을 볼 수 없습니다."));
-    return;
-  }
-
-  if (!data.visitors.length) {
-    visitorsShow(visitorsNote("이 시간대에는 입장 기록이 없습니다."));
-    return;
-  }
-
-  const list = document.createDocumentFragment();
-  data.visitors.forEach(v => list.appendChild(visitorRow(v)));
-  if (data.more > 0) list.appendChild(visitorsNote("외 " + data.more + "명"));
-  visitorsShow(list);
+  visitorsShow(visitorsNote("지금은 명단을 볼 수 없습니다."));
 }
 
 // 기록이 막힌 사람도 명단은 볼 수 있어야 한다.

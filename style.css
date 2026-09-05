@@ -279,6 +279,15 @@ input {
 }
 .visitors-loading { display: flex; justify-content: center; padding: 30px 0; }
 
+/* 본인 몫의 남은 조회 수. 목록 아래에 조용히 붙는다 */
+.visitors-quota {
+  margin: 0;
+  padding: 22px 8px 4px;
+  text-align: center;
+  font: 400 12px/1.6 Pretendard, sans-serif;
+  color: var(--muted-3);
+}
+
 /* ── 구글 로그인 버튼 자리 ───────────────────────────────────── */
 
 #gsi {
