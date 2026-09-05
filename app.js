@@ -128,7 +128,9 @@ async function post(extra) {
 // getCurrentPosition 은 쓸 만한 값 하나를 만들어 주려고 시간을 쓴다.
 // watchPosition 은 잡히는 족족 던져주므로 첫 값을 받고 바로 끊는다.
 // 정밀한 좌표가 필요한 것이 아니라 대략의 위치면 충분하다.
-const getPos = (timeout, gps) => new Promise(done => {
+// fresh 를 주면 캐시를 쓰지 않는다. 다시 눌러본 사람은 자리를 옮겼을 수 있어서,
+// 아까 잡아둔 값을 그대로 쓰면 움직였는데도 같은 결과가 나온다.
+const getPos = (timeout, gps, fresh) => new Promise(done => {
   if (!navigator.geolocation) return done({ error: "unavailable" });
 
   let id = null;
@@ -147,7 +149,7 @@ const getPos = (timeout, gps) => new Promise(done => {
       acc: Math.round(p.coords.accuracy)   // 오차 크기. 좌표가 아니라 측위 상태를 보는 값이다
     }),
     e => { if (e.code === 1) finish({ error: "denied" }); },   // 거부는 즉시, 그 외는 계속 기다린다
-    { enableHighAccuracy: !!gps, timeout: timeout, maximumAge: 300000 }
+    { enableHighAccuracy: !!gps, timeout: timeout, maximumAge: fresh ? 0 : 300000 }
   );
 });
 
@@ -162,21 +164,24 @@ function warmUp() {
     .then(p => {
       permission = p.state;
       p.onchange = () => { permission = p.state; };
-      if (p.state === "granted") warm = getPos(WAIT);
+      // 권한 조회가 로그인보다 늦게 끝날 수 있다. 그때 새로 걸면 아무도 안 쓰는 측위가
+      // 하나 더 돌고, 나중 재시도가 그 낡은 값을 집어간다.
+      if (p.state === "granted" && phase === "login") warm = getPos(WAIT);
     })
     .catch(() => {});
 }
 
 // 첫 측위는 콜드 스타트라 한 번에 실패하는 일이 잦다. 미리 시작해 둔 것이 있으면 그 결과를 쓴다.
-async function pos() {
-  const g = warm ? await warm : await getPos(WAIT);
+async function pos(fresh) {
+  // 미리 잡아둔 것도 캐시이므로, 다시 재라는 요청이면 쓰지 않는다.
+  const g = warm && !fresh ? await warm : await getPos(WAIT, false, fresh);
   warm = null;
   // Wi-Fi 와 기지국 측위를 아예 쓸 수 없는 기기가 있다(설정에서 꺼둔 경우).
   // 그때는 즉시 실패로 돌아오므로, 마지막으로 GPS 로 한 번 더 물어본다.
   // 여기서 한 번 더 기다리게 되는 것은 감수하되, 문구를 바꿔 멈춘 것이 아님을 알린다.
   if (g.error === "unavailable") {
     $("savingLabel").textContent = "위치 다시 확인 중";
-    return getPos(WAIT, true);
+    return getPos(WAIT, true, fresh);
   }
   return g;
 }
@@ -188,11 +193,14 @@ function onCredential(res) {
   credential = res.credential;
   const p = payload(credential);
   $("meLabel").textContent = (p.name || p.email || "") + " 님으로";
+  // 토큰은 두 번 올 수 있다. 버튼을 누른 것과 자동 선택이 겹치거나, 구글이 갱신해 줄 때다.
+  // 이미 진행 중이면 값만 새로 받고 흐름은 건드리지 않는다. 두 번 기록되면 안 된다.
+  if (phase !== "login") return;
   say("");
   record();
 }
 
-async function record() {
+async function record(fresh) {
   if (!credential || expired()) return relogin();
 
   go("saving");
@@ -205,7 +213,7 @@ async function record() {
   }, 6000);
 
   // 이름과 학번을 받으러 갔다 온 경우에는 이미 잡아둔 좌표가 있다. 다시 재지 않는다.
-  const geo = geoCache || await pos();
+  const geo = geoCache || await pos(fresh);
   clearTimeout(slow);
 
   if (phase !== "saving") return;   // 기다리는 사이 다른 화면으로 옮겨갔으면 그만둔다
@@ -390,7 +398,7 @@ $("morph").addEventListener("click", () => {
   } else if (phase === "rules") {
     record();   // 주의사항을 확인하면 그대로 기록까지 간다
   } else if (phase === "failed") {
-    record();   // 실패 판을 다시 누르면 재시도
+    record(true);   // 실패 판을 다시 누르면 위치부터 새로 재고 재시도
   } else if (phase === "visitors") {
     go(back);
   }
