@@ -82,7 +82,9 @@ function say(text) {
   $("status").textContent = text || "";
 }
 
-// 실패 판 안에 들어갈 문자열.
+// 실패 판에 들어갈 문자열. 브라우저가 스스로 겪은 것만 쓴다.
+// 서버가 왜 거절했는지는 화면에 옮기지 않는다. 반경 밖인지, 명단에 없는지, 학번이
+// 겹쳤는지가 구분되면 그것만 바꿔가며 넣어보는 것으로 남의 정보를 알아낼 수 있다.
 function fail(text) {
   $("failReason").textContent = text || "";
   say("");
@@ -110,16 +112,8 @@ async function post(extra) {
   try {
     return JSON.parse(text);
   } catch (e) {
-    return { ok: false, unreadable: true };
+    return { ok: false };
   }
-}
-
-// 서버가 사유를 실어 보내면 그것을 그대로 쓴다. 반경 밖인지, 명단에 없는지, 토큰이 죽었는지는
-// 서버만 알고 있어서, 여기서 지어내면 틀린 안내가 된다.
-function reasonOf(data) {
-  if (!data) return "";
-  const r = data.reason || data.message || data.error;
-  return typeof r === "string" ? r : "";
 }
 
 // timeout 은 권한 팝업을 띄워둔 시간까지 함께 센다. 처음 오는 사람은 팝업을 읽고
@@ -226,8 +220,6 @@ async function record() {
   }
   geoCache = null;
 
-  if (data.expired || data.invalidToken) return relogin();
-
   if (data.ok === true || data.recent) {
     profile = null;
     const time = clock();
@@ -246,14 +238,15 @@ async function record() {
     return;
   }
 
-  fail(reasonOf(data) ||
-       (geo.error ? POS_HELP[geo.error] : "지금은 기록할 수 없습니다."));
+  fail(geo.error ? POS_HELP[geo.error] : "지금은 기록할 수 없습니다.");
 }
 
 /* ── 최근 1시간 입장자 ─────────────────────────────────────────────
    볼 자격이 있는지는 전부 서버가 판단한다. 여기서 보내는 신원은 구글이 서명한 토큰 하나뿐이고,
    이름이나 연락처를 따로 실어 보내지 않는다. 브라우저가 스스로 주장하는 값은 누구든 바꿔
    보낼 수 있어서 자격의 근거가 되지 못한다.
+   이 페이지는 공개되어 있으므로 요청 모양도 전부 읽힌다. 버튼이 언제 보이는지는 방어가
+   아니고, 자격 판단은 요청이 올 때마다 서버가 다시 해야 한다.
    기록 흐름과는 상태를 공유하지 않는다. 여기서 무엇이 잘못되든 기록은 그대로 동작해야 한다. */
 
 let visitorsBusy = false;
@@ -312,16 +305,11 @@ async function loadVisitors() {
   }
   visitorsBusy = false;
 
-  if (data && (data.expired || data.invalidToken)) return relogin();
-
-  // 서버가 아직 이 요청을 모르는 동안에도 화면은 멀쩡해야 한다.
-  // 목록을 받지 못한 경우는 전부 같은 자리 표시로 덮는다.
+  // 목록을 받지 못한 경우는 이유를 가리지 않고 전부 같은 문장으로 덮는다.
+  // 자격이 없어서인지, 서버가 아직 이 요청을 모르는지, 잠시 막힌 것인지가
+  // 화면에서 구분되면 그 구분 자체가 서버 상태를 알려주는 통로가 된다.
   if (!data || !Array.isArray(data.visitors)) {
-    visitorsShow(visitorsNote(
-      data && data.denied
-        ? "동아리원으로 확인되지 않아 명단을 볼 수 없습니다."
-        : (reasonOf(data) || "지금은 명단을 불러올 수 없습니다.")
-    ));
+    visitorsShow(visitorsNote("지금은 명단을 볼 수 없습니다."));
     return;
   }
 
