@@ -33,7 +33,6 @@ let burst = false;
 let blocked = false;
 let dup = false;         // 1시간 안에 이미 남긴 경우. 축하 연출을 하지 않는다
 let jelly = 0;
-let geoCache = null;     // 이름과 학번을 받으러 갔다 오는 동안만 들고 있는 좌표
 
 function payload(jwt) {
   try {
@@ -93,7 +92,6 @@ function fail(text) {
 // 로그인 화면으로 되돌린다. #gsi 안의 구글 버튼은 그대로 살아 있으므로 다시 누르면 된다.
 function relogin(text) {
   credential = null;
-  geoCache = null;
   profile = null;
   go("login");
   say(text || "로그인이 만료되었습니다. 다시 로그인해주세요.");
@@ -212,8 +210,11 @@ async function record(fresh) {
     if (phase === "saving") $("savingLabel").textContent = "위치를 찾는 중입니다";
   }, 6000);
 
-  // 이름과 학번을 받으러 갔다 온 경우에는 이미 잡아둔 좌표가 있다. 다시 재지 않는다.
-  const geo = geoCache || await pos(fresh);
+  // 기록할 때마다 새로 묻는다. 이름과 학번을 받으러 갔다 온 경우에도 마찬가지다.
+  // 앞서 잡은 값을 따로 들고 있으면 그 값이 늙지 않아, 방에서 받아둔 좌표로
+  // 한참 뒤 다른 곳에서 기록할 수 있게 된다. getPos 의 maximumAge 가 이미
+  // 최근 값을 즉시 돌려주므로 두 번 기다리지도 않고, 그쪽은 5분으로 상한이 걸린다.
+  const geo = await pos(fresh);
   clearTimeout(slow);
 
   if (phase !== "saving") return;   // 기다리는 사이 다른 화면으로 옮겨갔으면 그만둔다
@@ -221,17 +222,9 @@ async function record(fresh) {
 
   const data = await post(Object.assign({ pos: geo.error ? null : geo }, profile));
 
-  if (!data) {
-    geoCache = null;
-    return fail("응답을 받을 수 없습니다.");
-  }
+  if (!data) return fail("응답을 받을 수 없습니다.");
 
-  if (data.needProfile) {
-    geoCache = geo.error ? null : geo;   // 성공한 좌표만 들고 간다
-    go("new");
-    return;
-  }
-  geoCache = null;
+  if (data.needProfile) { go("new"); return; }
 
   if (data.ok === true || data.recent) {
     profile = null;
