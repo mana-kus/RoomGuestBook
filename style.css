@@ -226,7 +226,7 @@ input {
 .rule-item { font: 400 13.5px/1.6 Pretendard, sans-serif; color: var(--text-3); }
 .rules-line { height: 1px; background: var(--off); }
 
-/* ── 최근 입장자 ─────────────────────────────────────────────── */
+/* ── 입장 기록 ───────────────────────────────────────────────── */
 
 /* 주의사항 판과 같은 자리를 쓴다. display 는 여기서 정하지 않는다. */
 #visitors {
@@ -241,12 +241,21 @@ input {
 }
 #visitors::-webkit-scrollbar { display: none; }
 
-.visitors-title {
+.visitors-head {
   flex: none;
+  text-align: center;
+  padding-bottom: 14px;
+}
+.visitors-title {
   font: 700 19px/1.3 Pretendard, sans-serif;
   color: var(--text);
-  text-align: center;
-  padding-bottom: 10px;
+}
+/* 목록이 지금 이 순간을 보여주지 않는다는 것을 반드시 알려야 한다.
+   방금 들어온 사람이 안 보인다고 해서 없는 것이 아니다. */
+.visitors-sub {
+  margin-top: 5px;
+  font: 400 12px/1.5 Pretendard, sans-serif;
+  color: var(--muted-2);
 }
 .visitors-body { display: flex; flex-direction: column; }
 
