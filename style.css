@@ -32,6 +32,9 @@
   /* 기준 캔버스 844px 에서의 값을 화면 높이에 맞춰 환산 */
   --mid:       50%;                                  /* 422 */
   --bottom:    calc(100% - 86px - var(--safe));      /* 758 */
+
+  /* 모바일 키보드가 가린 높이. app.js 가 넣어준다 */
+  --kb:        0px;
 }
 
 * { box-sizing: border-box; }
@@ -52,6 +55,12 @@ body {
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
+}
+
+/* 입력창에서는 선택과 붙여넣기가 되어야 한다 */
+input {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 #stage {
@@ -150,6 +159,40 @@ body {
   z-index: 4;
 }
 #more:active { color: var(--text-3); }
+
+/* ── 신규 등록 폼 ────────────────────────────────────────────── */
+
+/* 키보드가 올라오면 화면 아래가 가려진다. 남은 영역의 한가운데로 폼과 버튼을 함께 끌어올린다. */
+#form {
+  position: absolute;
+  left: 30px; right: 30px;
+  bottom: calc(50% + var(--kb) / 2);
+  margin-bottom: 44px;
+  animation: fadeup .45s cubic-bezier(.2, .8, .3, 1) both;
+}
+.form-title {
+  font: 700 27px/1.2 Pretendard, sans-serif;
+  color: var(--text);
+  text-align: center;
+  margin-bottom: 24px;
+}
+#form input {
+  display: block;
+  width: 100%;
+  height: 58px;
+  padding: 0 18px;
+  font: 500 17px Pretendard, sans-serif;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  outline: none;
+  transition: border-color .2s ease;
+}
+#form input + input { margin-top: 10px; }
+#form input::placeholder { color: #55555F; }
+#form input:focus { border-color: var(--focus); }
+#sid { font-variant-numeric: tabular-nums; }
 
 /* ── 주의사항 ────────────────────────────────────────────────── */
 
@@ -267,7 +310,9 @@ body {
 #morph:active { transform: translate(-50%, -50%) scale(.972); }
 
 /* 단계별 크기와 모양. 알약은 999px 이 아니라 높이의 절반을 쓴다 */
-.ph-absent   #morph { width: 330px; height: 392px; border-radius: 30px; background: var(--card);  border: 1px solid var(--line); }
+.ph-new      #morph { width: 330px; height: 62px;  border-radius: 18px; background: var(--off); top: calc(var(--mid) - var(--kb) / 2); }
+.ph-new.ok   #morph { background: var(--grad-btn); box-shadow: var(--sh-btn); }
+.ph-rules    #morph { width: 330px; height: 62px;  border-radius: 18px; background: var(--grad-btn); box-shadow: var(--sh-btn); top: var(--bottom); }
 .ph-done     #morph { width: 330px; height: 392px; border-radius: 30px; background: var(--grad-main); box-shadow: var(--sh-plate); }
 .ph-saving   #morph { width: 330px; height: 392px; border-radius: 30px; background: var(--loading); border: 1px solid var(--line-2); }
 .ph-failed   #morph { width: 330px; height: 392px; border-radius: 30px; background: var(--grad-fail); box-shadow: var(--sh-fail); }
@@ -295,7 +340,8 @@ body {
 /* :where() 로 감싸 특이성을 0으로 만든다.
    그러지 않으면 이 숨김 규칙이 아래 단계별 표시 규칙(.ph-*)을 눌러버린다. */
 :where(#morph) .c { display: none; white-space: nowrap; }
-.ph-absent   .c-absent,
+.ph-new      .c-new,
+.ph-rules    .c-rules,
 .ph-saving   .c-saving,
 .ph-done     .c-done,
 .ph-failed   .c-failed,
@@ -303,18 +349,16 @@ body {
 .ph-visitors .c-visitors { display: flex; align-items: center; justify-content: center; }
 
 /* 상자가 커지는 동안 내용이 잘리지 않도록 등장을 늦춘다 */
-.c-visitors,
-.c-absent   { animation: swapin .34s cubic-bezier(.2, .9, .3, 1) .16s both; }
+.c-new,
+.c-rules,
+.c-visitors { animation: swapin .34s cubic-bezier(.2, .9, .3, 1) .16s both; }
 .c-settled  { animation: swapin .34s cubic-bezier(.2, .9, .3, 1) .18s both; }
 .c-saving   { animation: swapin .3s  ease .14s both; }
 
+.c-new      { font: 600 17px Pretendard, sans-serif; color: var(--muted); }
+.ph-new.ok .c-new { color: #FFFFFF; }
+.c-rules    { font: 600 17px Pretendard, sans-serif; color: #FFFFFF; }
 .c-visitors { font: 600 17px Pretendard, sans-serif; color: var(--text-2); }
-
-/* 잘못한 것이 아니라 아직 명단에 없다는 안내다. 실패 판처럼 붉게 칠하지 않는다 */
-.c-absent    { flex-direction: column; gap: 12px; padding: 0 24px; }
-.absent-main { font: 700 24px Pretendard, sans-serif; color: var(--text); }
-.absent-sub  { font: 500 14px/1.6 Pretendard, sans-serif; color: var(--muted); text-align: center; white-space: normal; }
-.absent-hint { font: 500 12.5px Pretendard, sans-serif; color: var(--muted-3); margin-top: 4px; }
 
 .c-saving     { flex-direction: column; gap: 14px; }
 .saving-label { font: 500 15px Pretendard, sans-serif; color: var(--muted); }
@@ -398,24 +442,27 @@ body {
 
 /* ── 단계별 표시 ─────────────────────────────────────────────── */
 
-:where(#title, #rules, #visitors, #gsi, #morph, #more, #ver) { display: none; }
+:where(#title, #form, #rules, #visitors, #gsi, #morph, #more, #ver) { display: none; }
 
-.ph-login #ver   { display: block; }
+.ph-login #ver { display: block; }
+
 .ph-login #title { display: block; }
+.ph-new   #form  { display: block; }
 
-.ph-login    #gsi      { display: flex; }
-.ph-settled  #rules    { display: flex; }
+.ph-login    #gsi   { display: flex; }
+.ph-rules    #rules,
+.ph-settled  #rules { display: flex; }
 .ph-visitors #visitors { display: flex; }
 
-.ph-saving #morph, .ph-done #morph, .ph-failed #morph,
-.ph-settled #morph, .ph-visitors #morph,
-.ph-absent #morph { display: flex; }
+.ph-new #morph, .ph-rules #morph, .ph-saving #morph,
+.ph-done #morph, .ph-failed #morph, .ph-settled #morph,
+.ph-visitors #morph { display: flex; }
 
 /* 기록이 끝났거나 막힌 자리에서만 명단으로 갈 수 있다 */
 .ph-settled #more, .ph-failed #more { display: block; }
 
-.ph-settled #status, .ph-failed #status,
-.ph-visitors #status, .ph-absent #status,
+.ph-rules #status, .ph-settled #status, .ph-failed #status,
+.ph-visitors #status,
 .blocked #gsi { display: none; }
 
 /* ── 키프레임 ────────────────────────────────────────────────── */
@@ -436,7 +483,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #title, #rules, #visitors, #glow, .c, .badge.lg { animation: none !important; }
+  #title, #form, #rules, #visitors, #glow, .c, .badge.lg { animation: none !important; }
   .ph-done #glow, .ph-settled #glow, .ph-failed #glow { animation: none !important; opacity: 1; }
   .burst { display: none !important; }
   #morph { transition-duration: .01s; }

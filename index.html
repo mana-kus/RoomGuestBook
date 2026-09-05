@@ -19,6 +19,14 @@
 
   <div id="title">방명록</div>
 
+  <div id="form">
+    <div class="form-title">신규 등록</div>
+    <input id="name" placeholder="이름" aria-label="이름"
+           autocomplete="off" maxlength="40" enterkeyhint="next">
+    <input id="sid" placeholder="학번 10자리" aria-label="학번 10자리"
+           inputmode="numeric" autocomplete="off" maxlength="10" enterkeyhint="done">
+  </div>
+
   <div id="rules">
     <div class="rules-title">! 동방 이용 주의사항 !</div>
     <div class="rules-body">
@@ -51,11 +59,9 @@
 
   <button id="morph" type="button">
 
-    <span class="c c-absent">
-      <span class="absent-main">명단에 없습니다</span>
-      <span class="absent-sub">운영진에게 등록을 요청해주세요</span>
-      <span class="absent-hint">눌러서 다시 확인</span>
-    </span>
+    <span class="c c-new">등록</span>
+
+    <span class="c c-rules">확인했습니다</span>
 
     <span class="c c-saving">
       <i class="spin lg"></i>
