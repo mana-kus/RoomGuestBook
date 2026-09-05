@@ -24,9 +24,17 @@
   --sh-plate:  0 30px 60px -26px rgba(72, 33, 220, .6);
   --sh-fail:   0 30px 60px -26px rgba(212, 32, 54, .6);
 
+  /* viewport-fit=cover 로 화면 끝까지 쓰고 있다. 홈 인디케이터가 있는 기기에서는
+     하단 고정 요소가 그 위에 깔리므로, 가려지는 높이만큼 전부 함께 올린다.
+     인디케이터가 없는 기기에서는 0px 이라 지금까지의 배치 그대로다. */
+  --safe:      env(safe-area-inset-bottom, 0px);
+
   /* 기준 캔버스 844px 에서의 값을 화면 높이에 맞춰 환산 */
-  --mid:       50%;                  /* 422 */
-  --bottom:    calc(100% - 86px);    /* 758 */
+  --mid:       50%;                                  /* 422 */
+  --bottom:    calc(100% - 86px - var(--safe));      /* 758 */
+
+  /* 모바일 키보드가 가린 높이. app.js 가 넣어준다 */
+  --kb:        0px;
 }
 
 * { box-sizing: border-box; }
@@ -79,7 +87,7 @@ input {
   z-index: 3;
 }
 
-/* 위·아래 양쪽에서 번지게 한다 */
+/* 위와 아래 양쪽에서 번지게 한다 */
 #glow {
   position: absolute;
   inset: 0;
@@ -115,7 +123,7 @@ input {
 #status {
   position: absolute;
   left: 30px; right: 30px;
-  bottom: 30px;
+  bottom: calc(30px + var(--safe));
   margin: 0;
   text-align: center;
   font: 400 13px/1.6 Pretendard, sans-serif;
@@ -127,18 +135,38 @@ input {
 #ver {
   position: absolute;
   right: 14px;
-  bottom: 12px;
+  bottom: calc(12px + var(--safe));
   font: 400 10px/1 Pretendard, sans-serif;
   color: var(--muted-3);
   z-index: 2;
 }
 
+/* 위치가 반경 밖이라 기록이 막힌 사람도 명단은 볼 수 있어야 한다.
+   실패 판에 갇히지 않도록 완료와 실패 양쪽에서 이 길을 열어둔다. */
+#more {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(10px + var(--safe));
+  padding: 6px 14px;
+  font: 500 12.5px/1.3 Pretendard, sans-serif;
+  font-family: inherit;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  z-index: 4;
+}
+#more:active { color: var(--text-3); }
+
 /* ── 신규 등록 폼 ────────────────────────────────────────────── */
 
+/* 키보드가 올라오면 화면 아래가 가려진다. 남은 영역의 한가운데로 폼과 버튼을 함께 끌어올린다. */
 #form {
   position: absolute;
   left: 30px; right: 30px;
-  bottom: 50%;
+  bottom: calc(50% + var(--kb) / 2);
   margin-bottom: 44px;
   animation: fadeup .45s cubic-bezier(.2, .8, .3, 1) both;
 }
@@ -168,13 +196,13 @@ input {
 
 /* ── 주의사항 ────────────────────────────────────────────────── */
 
-/* display 는 여기서 정하지 않는다. 단계별 규칙(.ph-*)이 켜고 끈다 —
+/* display 는 여기서 정하지 않는다. 단계별 규칙(.ph-*)이 켜고 끈다.
    여기에 쓰면 특이성이 높아 숨김이 먹지 않는다. */
 #rules {
   position: absolute;
   left: 26px; right: 26px;
   top: 96px;
-  bottom: 144px;
+  bottom: calc(144px + var(--safe));
   flex-direction: column;
   overflow-y: auto;
   scrollbar-width: none;
@@ -197,6 +225,50 @@ input {
 .rule-etc  { font: 600 13px Pretendard, sans-serif; color: var(--muted-2); }
 .rule-item { font: 400 13.5px/1.6 Pretendard, sans-serif; color: var(--text-3); }
 .rules-line { height: 1px; background: var(--off); }
+
+/* ── 최근 입장자 ─────────────────────────────────────────────── */
+
+/* 주의사항 판과 같은 자리를 쓴다. display 는 여기서 정하지 않는다. */
+#visitors {
+  position: absolute;
+  left: 26px; right: 26px;
+  top: 96px;
+  bottom: calc(144px + var(--safe));
+  flex-direction: column;
+  overflow-y: auto;
+  scrollbar-width: none;
+  animation: fadeup .45s cubic-bezier(.2, .8, .3, 1) both;
+}
+#visitors::-webkit-scrollbar { display: none; }
+
+.visitors-title {
+  flex: none;
+  font: 700 19px/1.3 Pretendard, sans-serif;
+  color: var(--text);
+  text-align: center;
+  padding-bottom: 10px;
+}
+.visitors-body { display: flex; flex-direction: column; }
+
+.visitor {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 4px;
+  border-bottom: 1px solid var(--hair);
+}
+.visitor-name { font: 600 15px Pretendard, sans-serif; color: var(--text-2); }
+.visitor-time { flex: none; font: 500 13px Pretendard, sans-serif; color: var(--muted); }
+
+.visitors-note {
+  margin: 0;
+  padding: 26px 8px;
+  text-align: center;
+  font: 400 13.5px/1.7 Pretendard, sans-serif;
+  color: var(--muted);
+}
+.visitors-loading { display: flex; justify-content: center; padding: 30px 0; }
 
 /* ── 구글 로그인 버튼 자리 ───────────────────────────────────── */
 
@@ -237,16 +309,15 @@ input {
 }
 #morph:active { transform: translate(-50%, -50%) scale(.972); }
 
-/* 단계별 크기·모양. 알약은 999px 이 아니라 높이의 절반을 쓴다 */
-.ph-auth    #morph { width: 68px;  height: 68px;  border-radius: 34px; background: var(--card);    border: 1px solid var(--line); }
-.ph-new     #morph { width: 330px; height: 62px;  border-radius: 18px; background: var(--off); }
-.ph-new.ok  #morph { background: var(--grad-btn); box-shadow: var(--sh-btn); }
-.ph-rules   #morph { width: 330px; height: 62px;  border-radius: 18px; background: var(--grad-btn); box-shadow: var(--sh-btn); top: var(--bottom); }
-.ph-idle    #morph,
-.ph-done    #morph { width: 330px; height: 392px; border-radius: 30px; background: var(--grad-main); box-shadow: var(--sh-plate); }
-.ph-saving  #morph { width: 330px; height: 392px; border-radius: 30px; background: var(--loading); border: 1px solid var(--line-2); }
-.ph-failed  #morph { width: 330px; height: 392px; border-radius: 30px; background: var(--grad-fail); box-shadow: var(--sh-fail); }
-.ph-settled #morph { width: 330px; height: 76px;  border-radius: 20px; background: var(--grad-btn); box-shadow: var(--sh-btn); top: var(--bottom); }
+/* 단계별 크기와 모양. 알약은 999px 이 아니라 높이의 절반을 쓴다 */
+.ph-new      #morph { width: 330px; height: 62px;  border-radius: 18px; background: var(--off); top: calc(var(--mid) - var(--kb) / 2); }
+.ph-new.ok   #morph { background: var(--grad-btn); box-shadow: var(--sh-btn); }
+.ph-rules    #morph { width: 330px; height: 62px;  border-radius: 18px; background: var(--grad-btn); box-shadow: var(--sh-btn); top: var(--bottom); }
+.ph-done     #morph { width: 330px; height: 392px; border-radius: 30px; background: var(--grad-main); box-shadow: var(--sh-plate); }
+.ph-saving   #morph { width: 330px; height: 392px; border-radius: 30px; background: var(--loading); border: 1px solid var(--line-2); }
+.ph-failed   #morph { width: 330px; height: 392px; border-radius: 30px; background: var(--grad-fail); box-shadow: var(--sh-fail); }
+.ph-settled  #morph { width: 330px; height: 76px;  border-radius: 20px; background: var(--grad-btn); box-shadow: var(--sh-btn); top: var(--bottom); }
+.ph-visitors #morph { width: 330px; height: 62px;  border-radius: 18px; background: var(--off); border: 1px solid var(--line); top: var(--bottom); }
 
 /* 1시간 안에 이미 남긴 경우. 새로 기록한 것이 아니므로 축하하지 않는다 */
 .ph-settled.dup #morph { background: var(--card); border: 1px solid var(--line); box-shadow: none; }
@@ -255,8 +326,7 @@ input {
 .ph-settled.dup .badge.sm { background: var(--off); }
 .ph-settled.dup .badge.sm svg { stroke: var(--muted); }
 
-/* idle 판의 광택 */
-.ph-idle #morph::before,
+/* 완료 판의 광택 */
 .ph-done #morph::before {
   content: "";
   position: absolute;
@@ -268,38 +338,34 @@ input {
 /* ── 버튼 안 내용 ────────────────────────────────────────────── */
 
 /* :where() 로 감싸 특이성을 0으로 만든다.
-   그러지 않으면 이 숨김 규칙이 아래 단계별 표시 규칙(.ph-* )을 눌러버린다. */
+   그러지 않으면 이 숨김 규칙이 아래 단계별 표시 규칙(.ph-*)을 눌러버린다. */
 :where(#morph) .c { display: none; white-space: nowrap; }
-.ph-auth    .c-auth,
-.ph-new     .c-new,
-.ph-rules   .c-rules,
-.ph-idle    .c-idle,
-.ph-saving  .c-saving,
-.ph-done    .c-done,
-.ph-failed  .c-failed,
-.ph-settled .c-settled { display: flex; align-items: center; justify-content: center; }
+.ph-new      .c-new,
+.ph-rules    .c-rules,
+.ph-saving   .c-saving,
+.ph-done     .c-done,
+.ph-failed   .c-failed,
+.ph-settled  .c-settled,
+.ph-visitors .c-visitors { display: flex; align-items: center; justify-content: center; }
 
 /* 상자가 커지는 동안 내용이 잘리지 않도록 등장을 늦춘다 */
-.c-auth    { animation: swapin .34s cubic-bezier(.2, .9, .3, 1) .12s both; }
 .c-new,
-.c-rules   { animation: swapin .34s cubic-bezier(.2, .9, .3, 1) .16s both; }
-.c-settled { animation: swapin .34s cubic-bezier(.2, .9, .3, 1) .18s both; }
-.c-saving  { animation: swapin .3s  ease .14s both; }
-.c-idle    { animation: swapin .34s cubic-bezier(.2, .9, .3, 1) .24s both; }
+.c-rules,
+.c-visitors { animation: swapin .34s cubic-bezier(.2, .9, .3, 1) .16s both; }
+.c-settled  { animation: swapin .34s cubic-bezier(.2, .9, .3, 1) .18s both; }
+.c-saving   { animation: swapin .3s  ease .14s both; }
 
-.c-new     { font: 600 17px Pretendard, sans-serif; color: var(--muted); }
+.c-new      { font: 600 17px Pretendard, sans-serif; color: var(--muted); }
 .ph-new.ok .c-new { color: #FFFFFF; }
-.c-rules   { font: 600 17px Pretendard, sans-serif; color: #FFFFFF; }
+.c-rules    { font: 600 17px Pretendard, sans-serif; color: #FFFFFF; }
+.c-visitors { font: 600 17px Pretendard, sans-serif; color: var(--text-2); }
 
-.c-idle    { position: relative; flex-direction: column; gap: 10px; }
-.idle-sub  { font: 500 16px Pretendard, sans-serif; color: rgba(255, 255, 255, .8); }
-.idle-main { font: 700 44px Pretendard, sans-serif; color: #fff; }
-
-.c-saving     { flex-direction: column; gap: 18px; }
+.c-saving     { flex-direction: column; gap: 14px; }
 .saving-label { font: 500 15px Pretendard, sans-serif; color: var(--muted); }
+.saving-me    { font: 400 13px Pretendard, sans-serif; color: var(--muted-3); }
 
-/* 실패 판에는 광택 오버레이를 걸지 않는다 — X 위에 사각형이 겹쳐 보인다 */
-.c-failed { flex-direction: column; gap: 16px; animation: swapin .34s cubic-bezier(.2, .9, .3, 1) .16s both; }
+/* 실패 판에는 광택 오버레이를 걸지 않는다. X 위에 사각형이 겹쳐 보인다 */
+.c-failed { flex-direction: column; gap: 14px; animation: swapin .34s cubic-bezier(.2, .9, .3, 1) .16s both; }
 .failed-main   { font: 700 30px Pretendard, sans-serif; color: #fff; }
 .failed-reason {
   font: 500 14px/1.65 Pretendard, sans-serif;
@@ -309,6 +375,7 @@ input {
   padding: 0 6px;
   white-space: normal;
 }
+.failed-hint { font: 500 12.5px Pretendard, sans-serif; color: #fff; opacity: .62; }
 
 .c-done    { position: relative; flex-direction: column; gap: 16px; }
 .done-main { position: relative; font: 700 30px Pretendard, sans-serif; color: #fff; }
@@ -336,7 +403,6 @@ input {
   border-radius: 50%;
   animation: spin .8s linear infinite;
 }
-.spin.sm { width: 28px; height: 28px; border: 2.5px solid rgba(244, 244, 247, .18); border-top-color: var(--text); }
 .spin.lg { width: 36px; height: 36px; border: 3px solid rgba(140, 60, 255, .22); border-top-color: #B03BF9; animation-duration: .75s; }
 
 /* ── 완료 터짐 ───────────────────────────────────────────────── */
@@ -376,22 +442,27 @@ input {
 
 /* ── 단계별 표시 ─────────────────────────────────────────────── */
 
-:where(#title, #form, #rules, #gsi, #morph, #ver) { display: none; }
+:where(#title, #form, #rules, #visitors, #gsi, #morph, #more, #ver) { display: none; }
 
 .ph-login #ver { display: block; }
 
-.ph-login #title, .ph-auth #title,
-.ph-new   #form { display: block; }
+.ph-login #title { display: block; }
+.ph-new   #form  { display: block; }
 
-.ph-login   #gsi   { display: flex; }
-.ph-rules   #rules,
-.ph-settled #rules { display: flex; }
+.ph-login    #gsi   { display: flex; }
+.ph-rules    #rules,
+.ph-settled  #rules { display: flex; }
+.ph-visitors #visitors { display: flex; }
 
-.ph-auth #morph, .ph-new #morph, .ph-rules #morph,
-.ph-idle #morph, .ph-saving #morph, .ph-done #morph,
-.ph-failed #morph, .ph-settled #morph { display: flex; }
+.ph-new #morph, .ph-rules #morph, .ph-saving #morph,
+.ph-done #morph, .ph-failed #morph, .ph-settled #morph,
+.ph-visitors #morph { display: flex; }
+
+/* 기록이 끝났거나 막힌 자리에서만 명단으로 갈 수 있다 */
+.ph-settled #more, .ph-failed #more { display: block; }
 
 .ph-rules #status, .ph-settled #status, .ph-failed #status,
+.ph-visitors #status,
 .blocked #gsi { display: none; }
 
 /* ── 키프레임 ────────────────────────────────────────────────── */
@@ -412,7 +483,7 @@ input {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #title, #form, #rules, #glow, .c, .badge.lg { animation: none !important; }
+  #title, #form, #rules, #visitors, #glow, .c, .badge.lg { animation: none !important; }
   .ph-done #glow, .ph-settled #glow, .ph-failed #glow { animation: none !important; opacity: 1; }
   .burst { display: none !important; }
   #morph { transition-duration: .01s; }

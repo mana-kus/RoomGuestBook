@@ -1,4 +1,5 @@
-# 공개 저장소에는 index.html 만 올립니다.
+# 공개 저장소에는 프론트만 올립니다.
+# index.html, app.js, style.css, mana_logo.png 는 GitHub Pages 가 그대로 서빙합니다.
 # 아래 파일들은 서버 코드와 설계·방어 수단을 담고 있어 공개하지 않습니다.
 Code.gs
 NOTES.md

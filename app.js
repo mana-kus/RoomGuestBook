@@ -1,8 +1,12 @@
-﻿/* 동작 전담. 색·크기·모션은 style.css 에서만 다룹니다.
+﻿/* 동작 전담. 색과 크기, 모션은 style.css 에서만 다룹니다.
    여기서는 <body> 의 ph-* 클래스를 바꿀 뿐이고, 그 결과 보이는 모습은 전부 CSS 가 정합니다. */
 
-// 화면 우측 아래에 찍히는 판 번호. index.html 의 ?v= 와 같은 값으로 올린다.
-const VERSION = "v24";
+// 화면 우측 아래에 찍히는 판 번호. 이 파일을 불러온 <script src="app.js?v=NN"> 에서 읽는다.
+// 숫자를 여기와 index.html 양쪽에 적어두면 한쪽만 고치고 넘어가는 사고가 난다.
+const VERSION = (() => {
+  const m = /[?&]v=([^&]*)/.exec((document.currentScript || {}).src || "");
+  return m ? "v" + m[1] : "";
+})();
 
 const CLIENT_ID = "60891083163-acnj22k5h7m921srilkdvbi8is0o60sv.apps.googleusercontent.com";
 const ENDPOINT  = "https://script.google.com/macros/s/AKfycbxBwVkyj3PLy0nKJmBXPFN-UweRpH99d-p3SbkF1XUQf4pKt086OcXHm1_UCcnA6W-X/exec";
@@ -16,22 +20,38 @@ const IN_APP = /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|Line\/|NAVER|DaumApps|every
   .test(navigator.userAgent);
 
 // 측위를 기다리는 시간. 권한 팝업을 읽는 시간도 여기 포함된다.
-// 실내에서는 10초를 넘기는 일이 드물지 않아 넉넉히 잡는다 — 짧게 잡으면 멀쩡한 사람이 실패한다.
+// 실내에서는 10초를 넘기는 일이 드물지 않아 넉넉히 잡는다. 짧게 잡으면 멀쩡한 사람이 실패한다.
 const WAIT = 15000;
 
 const $ = id => document.getElementById(id);
 
 let credential = null;
-let profile = null;      // 신규 등록 시 함께 보낼 이름·학번
+let profile = null;      // 신규 등록 시 함께 보낼 이름과 학번
 let phase = "login";
+let back = "settled";    // 명단 화면에서 돌아갈 곳
 let burst = false;
 let blocked = false;
-let dup = false;         // 1시간 안에 이미 남긴 경우 — 축하 연출을 하지 않는다
+let dup = false;         // 1시간 안에 이미 남긴 경우. 축하 연출을 하지 않는다
 let jelly = 0;
+let geoCache = null;     // 이름과 학번을 받으러 갔다 오는 동안만 들고 있는 좌표
 
-const payload = jwt => JSON.parse(new TextDecoder().decode(
-  Uint8Array.from(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0))
-));
+function payload(jwt) {
+  try {
+    return JSON.parse(new TextDecoder().decode(
+      Uint8Array.from(atob(String(jwt).split(".")[1].replace(/-/g, "+").replace(/_/g, "/")),
+                      c => c.charCodeAt(0))
+    ));
+  } catch (e) {
+    return {};
+  }
+}
+
+// 구글 ID 토큰은 한 시간이면 만료된다. 만료된 것을 들고 다시 눌러봐야 서버가 거절할 뿐이고,
+// 화면은 같은 실패만 반복해서 빠져나갈 길이 새로고침밖에 없어진다. 누르기 전에 미리 본다.
+function expired() {
+  const p = payload(credential);
+  return !p.exp || p.exp * 1000 <= Date.now();
+}
 
 const clock = () => {
   const d = new Date();
@@ -62,27 +82,51 @@ function say(text) {
   $("status").textContent = text || "";
 }
 
-// 실패 판 안에 들어갈 문자열. 서버·브라우저가 준 것만 그대로 보여준다.
+// 실패 판 안에 들어갈 문자열.
 function fail(text) {
   $("failReason").textContent = text || "";
   say("");
   go("failed");
 }
 
+// 로그인 화면으로 되돌린다. #gsi 안의 구글 버튼은 그대로 살아 있으므로 다시 누르면 된다.
+function relogin(text) {
+  credential = null;
+  geoCache = null;
+  profile = null;
+  go("login");
+  say(text || "로그인이 만료되었습니다. 다시 로그인해주세요.");
+}
+
+// Apps Script 는 오류가 나면 JSON 이 아니라 HTML 을 돌려준다. 그대로 파싱하면 예외가 나서
+// 호출한 쪽이 네트워크 장애와 구분하지 못한다. 여기서 형태를 하나로 맞춰 돌려준다.
 async function post(extra) {
   const r = await fetch(ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify(Object.assign({ credential: credential }, extra))
   });
-  return r.json();
+  const text = await r.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    return { ok: false, unreadable: true };
+  }
+}
+
+// 서버가 사유를 실어 보내면 그것을 그대로 쓴다. 반경 밖인지, 명단에 없는지, 토큰이 죽었는지는
+// 서버만 알고 있어서, 여기서 지어내면 틀린 안내가 된다.
+function reasonOf(data) {
+  if (!data) return "";
+  const r = data.reason || data.message || data.error;
+  return typeof r === "string" ? r : "";
 }
 
 // timeout 은 권한 팝업을 띄워둔 시간까지 함께 센다. 처음 오는 사람은 팝업을 읽고
 // 누르는 동안 시간이 흐르므로 넉넉히 준다. maximumAge 는 최근에 잡아둔 위치를
 // 그대로 쓰게 해서 두 번째부터는 기다림이 없다.
 // getCurrentPosition 은 쓸 만한 값 하나를 만들어 주려고 시간을 쓴다.
-// watchPosition 은 잡히는 족족 던져주므로 첫 값을 받고 바로 끊는다 —
+// watchPosition 은 잡히는 족족 던져주므로 첫 값을 받고 바로 끊는다.
 // 반경 판정만 할 것이라 정확도는 필요 없고, 대략의 위치면 충분하다.
 const getPos = (timeout, gps) => new Promise(done => {
   if (!navigator.geolocation) return done({ error: "unavailable" });
@@ -108,7 +152,7 @@ const getPos = (timeout, gps) => new Promise(done => {
 });
 
 // 이미 권한을 허용한 사람은 팝업이 뜨지 않으므로, 페이지가 열리자마자 측위를 시작해
-// 로그인하는 동안 끝내둔다. 아직 허락하지 않은 사람에게는 손대지 않는다 —
+// 로그인하는 동안 끝내둔다. 아직 허락하지 않은 사람에게는 손대지 않는다.
 // 로그인도 하기 전에 위치 팝업이 뜨면 당황스럽고, 팝업을 읽는 시간이 timeout 을 잡아먹는다.
 let warm = null;
 let permission = null;   // "granted" | "prompt" | "denied" | null(알 수 없음)
@@ -123,16 +167,17 @@ function warmUp() {
     .catch(() => {});
 }
 
-// 첫 측위는 콜드 스타트라 한 번에 실패하는 일이 잦다. 시간이 모자라 실패한 경우에만
-// 한 번 더 시도한다. 사용자가 거부한 경우(denied)는 다시 물어도 소용없으므로 그대로 둔다.
-// 미리 시작해 둔 것이 있으면 그 결과를 쓴다. 실패하면 여기서 또 기다리지 않는다 —
-// 대기가 겹쳐 쌓이면 멀쩡한 사람도 오래 기다리다 실패한다. 다시 누르면 새로 시도한다.
+// 첫 측위는 콜드 스타트라 한 번에 실패하는 일이 잦다. 미리 시작해 둔 것이 있으면 그 결과를 쓴다.
 async function pos() {
   const g = warm ? await warm : await getPos(WAIT);
   warm = null;
-  // Wi-Fi·기지국 측위를 아예 쓸 수 없는 기기가 있다(설정에서 꺼둔 경우).
+  // Wi-Fi 와 기지국 측위를 아예 쓸 수 없는 기기가 있다(설정에서 꺼둔 경우).
   // 그때는 즉시 실패로 돌아오므로, 마지막으로 GPS 로 한 번 더 물어본다.
-  if (g.error === "unavailable") return getPos(WAIT, true);
+  // 여기서 한 번 더 기다리게 되는 것은 감수하되, 문구를 바꿔 멈춘 것이 아님을 알린다.
+  if (g.error === "unavailable") {
+    $("savingLabel").textContent = "위치 다시 확인 중";
+    return getPos(WAIT, true);
+  }
   return g;
 }
 
@@ -142,50 +187,180 @@ async function pos() {
 function onCredential(res) {
   credential = res.credential;
   const p = payload(credential);
-  $("meLabel").textContent = (p.name || p.email) + " 님으로";
+  $("meLabel").textContent = (p.name || p.email || "") + " 님으로";
   say("");
   record();
 }
 
 async function record() {
+  if (!credential || expired()) return relogin();
+
   go("saving");
   $("savingLabel").textContent = "위치 확인 중";
   say("");
 
-  const geo = await pos();
+  // 실내에서는 10초를 넘기기도 한다. 아무 변화가 없으면 멈춘 화면으로 보이므로 한 번 갈아준다.
+  const slow = setTimeout(() => {
+    if (phase === "saving") $("savingLabel").textContent = "위치를 찾는 중입니다";
+  }, 6000);
+
+  // 이름과 학번을 받으러 갔다 온 경우에는 이미 잡아둔 좌표가 있다. 다시 재지 않는다.
+  const geo = geoCache || await pos();
+  clearTimeout(slow);
+
+  if (phase !== "saving") return;   // 기다리는 사이 다른 화면으로 옮겨갔으면 그만둔다
   $("savingLabel").textContent = "기록 중";
 
+  let data;
   try {
-    const data = await post(Object.assign({ pos: geo.error ? null : geo }, profile));
-
-    if (data.needProfile) { go("new"); return; }
-
-    if (data.ok === true || data.recent) {
-      const time = clock();
-      $("doneTime").textContent = time;
-      $("settledTime").textContent = time;
-      $("settledLabel").textContent = data.recent ? "이미 기록되어 있습니다" : "완료되었습니다";
-
-      if (data.recent) { dup = true; go("settled"); return; }
-      dup = false;
-
-      if (navigator.vibrate) navigator.vibrate(60);
-      burst = true;
-      go("done");
-      setTimeout(() => { burst = false; paint(); }, 1000);
-      setTimeout(() => go("settled"), 1250);
-      return;
-    }
-
-    fail(geo.error ? POS_HELP[geo.error] : "지금은 기록할 수 없습니다.");
+    data = await post(Object.assign({ pos: geo.error ? null : geo }, profile));
   } catch (e) {
-    fail("연결에 실패했습니다. 다시 눌러주세요.");
+    geoCache = null;
+    return fail("연결에 실패했습니다. 다시 눌러주세요.");
   }
+
+  if (data.needProfile) {
+    geoCache = geo.error ? null : geo;   // 성공한 좌표만 들고 간다
+    go("new");
+    return;
+  }
+  geoCache = null;
+
+  if (data.expired || data.invalidToken) return relogin();
+
+  if (data.ok === true || data.recent) {
+    profile = null;
+    const time = clock();
+    $("doneTime").textContent = time;
+    $("settledTime").textContent = time;
+    $("settledLabel").textContent = data.recent ? "이미 기록되어 있습니다" : "완료되었습니다";
+
+    if (data.recent) { dup = true; go("settled"); return; }
+    dup = false;
+
+    if (navigator.vibrate) navigator.vibrate(60);
+    burst = true;
+    go("done");
+    setTimeout(() => { burst = false; paint(); }, 1000);
+    setTimeout(() => { if (phase === "done") go("settled"); }, 1250);
+    return;
+  }
+
+  fail(reasonOf(data) ||
+       (geo.error ? POS_HELP[geo.error] : "지금은 기록할 수 없습니다."));
 }
+
+/* ── 최근 1시간 입장자 ─────────────────────────────────────────────
+   볼 자격이 있는지는 전부 서버가 판단한다. 여기서 보내는 신원은 구글이 서명한 토큰 하나뿐이고,
+   이름이나 연락처를 따로 실어 보내지 않는다. 브라우저가 스스로 주장하는 값은 누구든 바꿔
+   보낼 수 있어서 자격의 근거가 되지 못한다.
+   기록 흐름과는 상태를 공유하지 않는다. 여기서 무엇이 잘못되든 기록은 그대로 동작해야 한다. */
+
+let visitorsBusy = false;
+
+function visitorsShow(node) {
+  const body = $("visitorsBody");
+  body.textContent = "";
+  body.appendChild(node);
+}
+
+function visitorsNote(text) {
+  const p = document.createElement("p");
+  p.className = "visitors-note";
+  p.textContent = text;
+  return p;
+}
+
+// 서버가 준 문자열은 전부 textContent 로만 넣는다. innerHTML 은 쓰지 않는다.
+function visitorRow(v) {
+  const row = document.createElement("div");
+  row.className = "visitor";
+
+  const name = document.createElement("span");
+  name.className = "visitor-name";
+  const time = document.createElement("span");
+  time.className = "visitor-time tnum";
+
+  if (v && typeof v === "object") {
+    name.textContent = v.name == null ? "" : String(v.name);
+    time.textContent = v.at == null ? (v.time == null ? "" : String(v.time)) : String(v.at);
+  } else {
+    name.textContent = v == null ? "" : String(v);
+  }
+
+  row.appendChild(name);
+  row.appendChild(time);
+  return row;
+}
+
+async function loadVisitors() {
+  if (visitorsBusy) return;
+  visitorsBusy = true;
+
+  const wait = document.createElement("div");
+  wait.className = "visitors-loading";
+  const ring = document.createElement("i");
+  ring.className = "spin lg";
+  wait.appendChild(ring);
+  visitorsShow(wait);
+
+  let data = null;
+  try {
+    data = await post({ action: "visitors" });
+  } catch (e) {
+    data = null;
+  }
+  visitorsBusy = false;
+
+  if (data && (data.expired || data.invalidToken)) return relogin();
+
+  // 서버가 아직 이 요청을 모르는 동안에도 화면은 멀쩡해야 한다.
+  // 목록을 받지 못한 경우는 전부 같은 자리 표시로 덮는다.
+  if (!data || !Array.isArray(data.visitors)) {
+    visitorsShow(visitorsNote(
+      data && data.denied
+        ? "동아리원으로 확인되지 않아 명단을 볼 수 없습니다."
+        : (reasonOf(data) || "지금은 명단을 불러올 수 없습니다.")
+    ));
+    return;
+  }
+
+  if (!data.visitors.length) {
+    visitorsShow(visitorsNote("최근 1시간 동안 기록된 입장이 없습니다."));
+    return;
+  }
+
+  const list = document.createDocumentFragment();
+  data.visitors.forEach(v => list.appendChild(visitorRow(v)));
+  if (data.more > 0) list.appendChild(visitorsNote("외 " + data.more + "명"));
+  visitorsShow(list);
+}
+
+// 위치가 반경 밖이라 기록이 막힌 사람도 명단은 볼 수 있어야 한다.
+// 그래서 실패 판에서도 이 길이 열려 있고, 여기서는 측위를 하지 않는다.
+function openVisitors() {
+  if (!credential || expired()) return relogin();
+  back = phase;
+  go("visitors");
+  loadVisitors();
+}
+
+/* ── 입력 ──────────────────────────────────────────────────────── */
 
 $("sid").addEventListener("input", e => {
   e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
   paint();
+});
+
+$("name").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); $("sid").focus(); }
+});
+
+$("sid").addEventListener("keydown", e => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  e.target.blur();
+  if (sidOk()) $("morph").click();
 });
 
 $("morph").addEventListener("click", () => {
@@ -198,38 +373,92 @@ $("morph").addEventListener("click", () => {
     record();   // 주의사항을 확인하면 그대로 기록까지 간다
   } else if (phase === "failed") {
     record();   // 실패 판을 다시 누르면 재시도
+  } else if (phase === "visitors") {
+    go(back);
   }
 });
 
-window.onload = () => {
+$("more").addEventListener("click", openVisitors);
+
+// 모바일 키보드가 올라오면 화면 아래쪽이 가려진다. 신규 등록 화면의 버튼은 정중앙에 있어서
+// 그대로 두면 키보드 밑에 깔려 누를 수가 없다. 가려진 높이를 CSS 로 넘겨 그만큼 끌어올린다.
+function trackKeyboard() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const apply = () => {
+    const hidden = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    document.documentElement.style.setProperty("--kb", Math.round(hidden) + "px");
+  };
+  vv.addEventListener("resize", apply);
+  vv.addEventListener("scroll", apply);
+  apply();
+}
+
+/* ── 시작 ──────────────────────────────────────────────────────── */
+
+// 인앱 브라우저 안내는 구글 스크립트를 기다릴 이유가 없다. 문서만 준비되면 바로 띄운다.
+function boot() {
   $("ver").textContent = VERSION;
+  trackKeyboard();
 
   if (IN_APP) {
     blocked = true;
     paint();
     say("카카오톡 안에서는 구글 로그인이 되지 않습니다. 오른쪽 아래 메뉴에서 '다른 브라우저로 열기'를 눌러주세요.");
+  }
+}
+
+// FedCM 을 켜면 isDisplayed() 와 isSkippedMoment() 는 더 이상 쓸 수 없고 호출하면 예외가 난다.
+// getMomentType() 이 그 자리를 대신하지만 없을 수도 있으므로 양쪽 모두 막아둔다.
+function moment(n) {
+  let shown = false;
+  try {
+    shown = typeof n.getMomentType === "function"
+      ? n.getMomentType() === "display"
+      : n.isDisplayed();
+  } catch (e) {
+    shown = false;
+  }
+  // 이미 로그인이 끝나 다른 화면으로 넘어갔다면 늦게 온 알림으로 문구를 덮지 않는다.
+  if (!shown && phase === "login") say("위 버튼으로 로그인해주세요");
+}
+
+window.onload = () => {
+  if (blocked) return;
+
+  // 광고 차단기나 망 정책으로 구글 스크립트가 막히면 google 이 없다. 그대로 두면
+  // 아래에서 예외가 나 뒤 코드가 전부 죽고, 화면은 "구글 계정 확인 중" 에서 멈춘다.
+  if (!window.google || !google.accounts || !google.accounts.id) {
+    say("구글 로그인을 불러오지 못했습니다. 네트워크를 확인하고 새로고침해주세요.");
     return;
   }
 
   warmUp();
 
-  google.accounts.id.initialize({
-    client_id: CLIENT_ID,
-    callback: onCredential,
-    auto_select: true,
-    use_fedcm_for_prompt: true,
-    itp_support: true,
-    cancel_on_tap_outside: false
-  });
-  // 폭은 계정 이름 길이에 따라 달라지므로 고정하지 않는다
-  google.accounts.id.renderButton($("gsi"), {
-    theme: "filled_black", shape: "pill", size: "large", text: "signin_with", locale: "ko"
-  });
-  google.accounts.id.prompt(n => {
-    if (!n.isDisplayed() && !n.isSkippedMoment()) return;
+  try {
+    google.accounts.id.initialize({
+      client_id: CLIENT_ID,
+      callback: onCredential,
+      auto_select: true,
+      use_fedcm_for_prompt: true,
+      itp_support: true,
+      cancel_on_tap_outside: false
+    });
+    // 폭은 계정 이름 길이에 따라 달라지므로 고정하지 않는다
+    google.accounts.id.renderButton($("gsi"), {
+      theme: "filled_black", shape: "pill", size: "large", text: "signin_with", locale: "ko"
+    });
+  } catch (e) {
+    say("구글 로그인을 시작하지 못했습니다. 새로고침해주세요.");
+    return;
+  }
+
+  try {
+    google.accounts.id.prompt(moment);
+  } catch (e) {
     say("위 버튼으로 로그인해주세요");
-  });
+  }
 };
 
 paint();
-
+boot();

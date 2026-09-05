@@ -8,7 +8,7 @@
 <link rel="icon" href="mana_logo.png">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-<link rel="stylesheet" href="style.css?v=24">
+<link rel="stylesheet" href="style.css?v=25">
 </head>
 <body class="ph-login">
 <div id="stage">
@@ -21,8 +21,10 @@
 
   <div id="form">
     <div class="form-title">신규 등록</div>
-    <input id="name" placeholder="이름" autocomplete="off" maxlength="40">
-    <input id="sid" placeholder="학번 10자리" inputmode="numeric" autocomplete="off" maxlength="10">
+    <input id="name" placeholder="이름" aria-label="이름"
+           autocomplete="off" maxlength="40" enterkeyhint="next">
+    <input id="sid" placeholder="학번 10자리" aria-label="학번 10자리"
+           inputmode="numeric" autocomplete="off" maxlength="10" enterkeyhint="done">
   </div>
 
   <div id="rules">
@@ -48,23 +50,23 @@
     </div>
   </div>
 
+  <div id="visitors">
+    <div class="visitors-title">최근 1시간 입장</div>
+    <div class="visitors-body" id="visitorsBody"></div>
+  </div>
+
   <div id="gsi"></div>
 
   <button id="morph" type="button">
-    <span class="c c-auth"><i class="spin sm"></i></span>
 
     <span class="c c-new">등록</span>
 
     <span class="c c-rules">확인했습니다</span>
 
-    <span class="c c-idle">
-      <span class="idle-sub" id="meLabel"></span>
-      <span class="idle-main">작성하기</span>
-    </span>
-
     <span class="c c-saving">
       <i class="spin lg"></i>
       <span class="saving-label" id="savingLabel">위치 확인 중</span>
+      <span class="saving-me" id="meLabel"></span>
     </span>
 
     <span class="c c-done">
@@ -99,6 +101,7 @@
       </svg>
       <span class="failed-main">기록 실패</span>
       <span class="failed-reason" id="failReason"></span>
+      <span class="failed-hint">눌러서 다시 시도</span>
     </span>
 
     <span class="c c-settled">
@@ -113,7 +116,11 @@
         <span class="settled-time tnum" id="settledTime"></span>
       </span>
     </span>
+
+    <span class="c c-visitors">돌아가기</span>
   </button>
+
+  <button id="more" type="button">최근 1시간 입장자 보기</button>
 
   <p id="status">구글 계정 확인 중…</p>
 
@@ -121,24 +128,7 @@
 
 </div>
 
-<script src="app.js?v=24"></script>
+<script src="app.js?v=25"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
