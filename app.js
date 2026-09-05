@@ -26,14 +26,12 @@ const WAIT = 15000;
 const $ = id => document.getElementById(id);
 
 let credential = null;
-let profile = null;      // 신규 등록 시 함께 보낼 이름과 학번
 let phase = "login";
 let back = "settled";    // 명단 화면에서 돌아갈 곳
 let burst = false;
 let blocked = false;
 let dup = false;         // 1시간 안에 이미 남긴 경우. 축하 연출을 하지 않는다
 let jelly = 0;
-let geoCache = null;     // 이름과 학번을 받으러 갔다 오는 동안만 들고 있는 좌표
 
 function payload(jwt) {
   try {
@@ -58,11 +56,8 @@ const clock = () => {
   return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
 };
 
-const sidOk = () => $("sid").value.length === 10;
-
 function paint() {
   const cls = ["ph-" + phase];
-  if (phase === "new" && sidOk()) cls.push("ok");
   if (burst) cls.push("burst-on");
   if (blocked) cls.push("blocked");
   if (dup) cls.push("dup");
@@ -94,25 +89,30 @@ function fail(text) {
 // 로그인 화면으로 되돌린다. #gsi 안의 구글 버튼은 그대로 살아 있으므로 다시 누르면 된다.
 function relogin(text) {
   credential = null;
-  geoCache = null;
-  profile = null;
   go("login");
   say(text || "로그인이 만료되었습니다. 다시 로그인해주세요.");
 }
 
-// Apps Script 는 오류가 나면 JSON 이 아니라 HTML 을 돌려준다. 그대로 파싱하면 예외가 나서
-// 호출한 쪽이 네트워크 장애와 구분하지 못한다. 여기서 형태를 하나로 맞춰 돌려준다.
+// 응답을 받지 못한 것과, 받았는데 거절인 것은 다르다. 앞은 브라우저가 직접 겪은 일이라
+// 그대로 알려도 되고, 뒤는 서버 사정이라 알리지 않는다. 그래서 둘을 섞지 않는다.
+// 못 받은 경우는 null. 끊겼거나, 오류 코드거나, Apps Script 가 JSON 대신 HTML 을 준 경우다.
 async function post(extra) {
-  const r = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(Object.assign({ credential: credential }, extra))
-  });
-  const text = await r.text();
+  let text;
+  try {
+    const r = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(Object.assign({ credential: credential }, extra))
+    });
+    if (!r.ok) return null;
+    text = await r.text();
+  } catch (e) {
+    return null;
+  }
   try {
     return JSON.parse(text);
   } catch (e) {
-    return { ok: false };
+    return null;
   }
 }
 
@@ -198,30 +198,21 @@ async function record() {
     if (phase === "saving") $("savingLabel").textContent = "위치를 찾는 중입니다";
   }, 6000);
 
-  // 이름과 학번을 받으러 갔다 온 경우에는 이미 잡아둔 좌표가 있다. 다시 재지 않는다.
-  const geo = geoCache || await pos();
+  const geo = await pos();
   clearTimeout(slow);
 
   if (phase !== "saving") return;   // 기다리는 사이 다른 화면으로 옮겨갔으면 그만둔다
   $("savingLabel").textContent = "기록 중";
 
-  let data;
-  try {
-    data = await post(Object.assign({ pos: geo.error ? null : geo }, profile));
-  } catch (e) {
-    geoCache = null;
-    return fail("연결에 실패했습니다. 다시 눌러주세요.");
-  }
+  const data = await post({ pos: geo.error ? null : geo });
 
-  if (data.needProfile) {
-    geoCache = geo.error ? null : geo;   // 성공한 좌표만 들고 간다
-    go("new");
-    return;
-  }
-  geoCache = null;
+  if (!data) return fail("응답을 받을 수 없습니다.");
+
+  // 명단은 운영진이 미리 채운다. 사용자가 스스로 등록할 수 있으면 남의 학번을 먼저
+  // 적어두는 것으로 그 사람 행세를 할 수 있다. 그래서 여기서는 안내만 한다.
+  if (data.needProfile) { go("absent"); return; }
 
   if (data.ok === true || data.recent) {
-    profile = null;
     const time = clock();
     $("doneTime").textContent = time;
     $("settledTime").textContent = time;
@@ -297,18 +288,19 @@ async function loadVisitors() {
   wait.appendChild(ring);
   visitorsShow(wait);
 
-  let data = null;
-  try {
-    data = await post({ action: "visitors" });
-  } catch (e) {
-    data = null;
-  }
+  const data = await post({ action: "visitors" });
   visitorsBusy = false;
 
-  // 목록을 받지 못한 경우는 이유를 가리지 않고 전부 같은 문장으로 덮는다.
+  // 아예 못 받은 것은 브라우저가 겪은 일이라 그대로 알린다.
+  if (!data) {
+    visitorsShow(visitorsNote("응답을 받을 수 없습니다."));
+    return;
+  }
+
+  // 받았는데 목록이 없는 경우는 이유를 가리지 않고 전부 같은 문장으로 덮는다.
   // 자격이 없어서인지, 서버가 아직 이 요청을 모르는지, 잠시 막힌 것인지가
   // 화면에서 구분되면 그 구분 자체가 서버 상태를 알려주는 통로가 된다.
-  if (!data || !Array.isArray(data.visitors)) {
+  if (!Array.isArray(data.visitors)) {
     visitorsShow(visitorsNote("지금은 명단을 볼 수 없습니다."));
     return;
   }
@@ -333,34 +325,11 @@ function openVisitors() {
   loadVisitors();
 }
 
-/* ── 입력 ──────────────────────────────────────────────────────── */
-
-$("sid").addEventListener("input", e => {
-  e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
-  paint();
-});
-
-$("name").addEventListener("keydown", e => {
-  if (e.key === "Enter") { e.preventDefault(); $("sid").focus(); }
-});
-
-$("sid").addEventListener("keydown", e => {
-  if (e.key !== "Enter") return;
-  e.preventDefault();
-  e.target.blur();
-  if (sidOk()) $("morph").click();
-});
+/* ── 누르기 ────────────────────────────────────────────────────── */
 
 $("morph").addEventListener("click", () => {
-  if (phase === "new") {
-    const name = $("name").value.trim();
-    if (!name || !sidOk()) return;
-    profile = { name: name, studentId: $("sid").value };
-    go("rules");
-  } else if (phase === "rules") {
-    record();   // 주의사항을 확인하면 그대로 기록까지 간다
-  } else if (phase === "failed") {
-    record();   // 실패 판을 다시 누르면 재시도
+  if (phase === "failed" || phase === "absent") {
+    record();   // 다시 누르면 재시도. 그사이 운영진이 명단에 넣었을 수도 있다
   } else if (phase === "visitors") {
     go(back);
   }
@@ -368,26 +337,11 @@ $("morph").addEventListener("click", () => {
 
 $("more").addEventListener("click", openVisitors);
 
-// 모바일 키보드가 올라오면 화면 아래쪽이 가려진다. 신규 등록 화면의 버튼은 정중앙에 있어서
-// 그대로 두면 키보드 밑에 깔려 누를 수가 없다. 가려진 높이를 CSS 로 넘겨 그만큼 끌어올린다.
-function trackKeyboard() {
-  const vv = window.visualViewport;
-  if (!vv) return;
-  const apply = () => {
-    const hidden = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-    document.documentElement.style.setProperty("--kb", Math.round(hidden) + "px");
-  };
-  vv.addEventListener("resize", apply);
-  vv.addEventListener("scroll", apply);
-  apply();
-}
-
 /* ── 시작 ──────────────────────────────────────────────────────── */
 
 // 인앱 브라우저 안내는 구글 스크립트를 기다릴 이유가 없다. 문서만 준비되면 바로 띄운다.
 function boot() {
   $("ver").textContent = VERSION;
-  trackKeyboard();
 
   if (IN_APP) {
     blocked = true;
